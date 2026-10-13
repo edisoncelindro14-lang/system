@@ -9,14 +9,14 @@ import { GCashButton } from "./GCashButton";
 import RiceFieldBackground from "./RiceFieldBackground";
 import { clearDataCache } from "../lib/useData";
 
-const LOGO_URL = "https://media.base44.com/images/public/6ac1daab80dea63a77ad8fa1/66582b089_Firefly.png";
+const LOGO_URL = "https://media.base44.com/images/public/6acdff0f22869b52739d919a/97535a1fd_Firefly1.png";
 
 const NAV_ITEMS = [
   { name: "Dashboard", icon: LayoutDashboard, path: "Dashboard" },
-  { name: "ProductPrime Tree", icon: GitBranch, path: "Genealogy" },
+  { name: "Zistem Tree", icon: GitBranch, path: "Genealogy" },
   { name: "1st Level Monitoring", icon: Users, path: "Monitoring" },
   { name: "Total Withdrawal", icon: Wallet, path: "Earnings" },
-  { name: "ProductPrime ComPlan", icon: Layers, path: "LevelBonuses" },
+  { name: "Zistem ComPlan", icon: Layers, path: "LevelBonuses" },
   { name: "Code Cabinet", icon: Archive, path: "CodeCabinet" },
   { name: "My Profile", icon: User, path: "Profile" },
 ];
@@ -82,8 +82,8 @@ export default function Layout({ children, currentPageName }) {
       {/* Mobile header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-xl border-b border-orange-200 z-50 px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src={LOGO_URL} alt="ProductPrime" className="w-10 h-10 rounded-xl object-cover" />
-          <span className="font-bold text-xl text-gray-900">ProductPrime</span>
+          <img src={LOGO_URL} alt="Zistem" className="w-10 h-10 rounded-xl object-cover" />
+          <span className="font-bold text-xl text-gray-900">Zistem</span>
         </div>
         <button onClick={() => setMobileOpen(true)} className="p-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 shadow-lg active:scale-95 transition-all">
           <Menu className="w-8 h-8 text-white" />
@@ -94,10 +94,10 @@ export default function Layout({ children, currentPageName }) {
       <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-gradient-to-b from-orange-500 via-orange-400 to-orange-300 border-r border-orange-300/40 flex-col z-40">
         <div className="p-6 border-b border-white/20">
           <div className="flex items-center gap-3">
-            <img src={LOGO_URL} alt="ProductPrime" className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/40" />
+            <img src={LOGO_URL} alt="Zistem" className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/40" />
             <div>
-              <p className="font-bold text-xl text-white drop-shadow">ProductPrime</p>
-              <p className="text-xs text-white/70">ProductPrime</p>
+              <p className="font-bold text-xl text-white drop-shadow">Zistem</p>
+              <p className="text-xs text-white/70">Zistem</p>
             </div>
           </div>
         </div>
@@ -139,8 +139,8 @@ export default function Layout({ children, currentPageName }) {
             >
               <div className="p-6 border-b border-white/20 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <img src={LOGO_URL} alt="ProductPrime" className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/40" />
-                  <span className="font-bold text-xl text-white drop-shadow">ProductPrime</span>
+                  <img src={LOGO_URL} alt="Zistem" className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/40" />
+                  <span className="font-bold text-xl text-white drop-shadow">Zistem</span>
                 </div>
                 <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg hover:bg-white/20 text-white">
                   <X className="w-5 h-5" />

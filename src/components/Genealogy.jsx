@@ -266,7 +266,7 @@ export default function Genealogy() {
           <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl mx-auto mb-6 flex items-center justify-center">
             <GitBranch className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">ProductPrime Tree</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">Zistem Tree</h1>
           <p className="text-gray-600 mb-6">Please login to view your genealogy.</p>
           <Link to="/MemberLogin">
             <Button className="bg-orange-500 hover:bg-orange-600 text-white text-lg px-8 py-6">Login <ArrowRight className="ml-2 w-5 h-5" /></Button>
@@ -331,7 +331,7 @@ export default function Genealogy() {
             <GitBranch className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">ProductPrime Tree</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Zistem Tree</h1>
             <p className="text-gray-500">{isSuperAdmin ? "Full network — up to 8 downlines per member" : "5-level network — up to 8 downlines per member"}</p>
           </div>
         </div>
