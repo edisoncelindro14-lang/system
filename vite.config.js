@@ -32,8 +32,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["pwa-192.png", "pwa-512.png", "apple-touch-icon.png"],
       manifest: {
-        name: "ProductPrime",
-        short_name: "ProductPrime",
+        name: "Zistem",
+        short_name: "Zistem",
         description: "MLM genealogy and referral management platform",
         theme_color: "#f59e0b",
         background_color: "#ffffff",

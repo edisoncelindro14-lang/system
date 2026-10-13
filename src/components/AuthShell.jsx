@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import RiceFieldBackground from "./RiceFieldBackground";
 
-const LOGO_URL = "https://media.base44.com/images/public/6ac1daab80dea63a77ad8fa1/66582b089_Firefly.png";
+const LOGO_URL = "https://media.base44.com/images/public/6acdff0f22869b52739d919a/97535a1fd_Firefly1.png";
 
 export const ORANGE_GRADIENT = "linear-gradient(90deg, #f7931e 0%, #f37021 55%, #e8501a 100%)";
 export const GOLD_GRADIENT =
@@ -50,7 +50,7 @@ export default function AuthShell({ title, backTo, children }) {
             />
             <img
               src={LOGO_URL}
-              alt="ProductPrime"
+              alt="Zistem"
               className="relative w-20 h-20 rounded-2xl mx-auto mb-5 object-cover shadow-lg border-2"
               style={{ borderColor: "#e8c46a" }}
             />

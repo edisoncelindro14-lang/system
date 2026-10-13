@@ -195,7 +195,7 @@ export default function Dashboard() {
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
           Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-rose-700">{currentMember.username || "Member"}</span>
         </h1>
-        <p className="text-gray-500 mt-2">Here's your ProductPrime network overview</p>
+        <p className="text-gray-500 mt-2">Here's your Zistem network overview</p>
       </motion.div>
 
       {/* Balance card + Maintenance code */}

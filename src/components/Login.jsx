@@ -45,7 +45,7 @@ export default function Login() {
   }
 
   return (
-    <AuthShell title="ProductPrime Member Log In">
+    <AuthShell title="Zistem Member Log In">
       <form onSubmit={submit} className="space-y-6">
         <AuthInput
           label="Username"

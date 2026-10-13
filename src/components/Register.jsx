@@ -123,7 +123,7 @@ export default function Register() {
   }[usernameStatus];
 
   return (
-    <AuthShell title="ProductPrime Registration Form" backTo="/MemberLogin">
+    <AuthShell title="Zistem Registration Form" backTo="/MemberLogin">
       <form onSubmit={submit} className="space-y-6">
         {referrerInfo && (
           <div className="flex items-center gap-3 rounded-xl px-4 py-3 border border-white/30" style={{ background: "rgba(255,255,255,0.12)" }}>
