@@ -408,7 +408,9 @@ insert into public.system_settings (setting_key, setting_value, description) val
   ('tab_monitoring_visible', 'true', 'Monitoring tab visibility'),
   ('tab_subadmin_visible', 'true', 'Sub-admin tab visibility'),
   ('tab_terms_visible', 'true', 'Terms visibility'),
-  ('tab_complan_visible', 'true', 'ComPlan visibility')
+  ('tab_complan_visible', 'true', 'ComPlan visibility'),
+  ('announcement_text', '', 'Site-wide announcement banner text'),
+  ('announcement_enabled', 'false', 'Whether the announcement banner is visible')
 on conflict (setting_key) do nothing;
 
 -- ========== CREATE ADMIN ACCOUNT ==========
