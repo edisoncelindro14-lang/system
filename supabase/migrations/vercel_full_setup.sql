@@ -379,19 +379,23 @@ do $$ begin
 exception when others then raise notice 'pg_cron not scheduled: %', sqlerrm;
 end $$;
 
--- ========== STORAGE BUCKETS ==========
-insert into storage.buckets (id, name, public) values ('receipts', 'receipts', true)
-  on conflict (id) do nothing;
+-- ========== STORAGE BUCKETS (Supabase only — skipped on plain Postgres) ==========
+do $$ begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    insert into storage.buckets (id, name, public) values ('receipts', 'receipts', true)
+      on conflict (id) do nothing;
 
-insert into storage.buckets (id, name, public, file_size_limit)
-values ('ads', 'ads', true, 524288000)
-on conflict (id) do update set public = true, file_size_limit = 524288000;
+    insert into storage.buckets (id, name, public, file_size_limit)
+    values ('ads', 'ads', true, 524288000)
+    on conflict (id) do update set public = true, file_size_limit = 524288000;
 
--- Ads bucket policies
-drop policy if exists "ads_public_read" on storage.objects;
-create policy "ads_public_read" on storage.objects for select using (bucket_id = 'ads');
-drop policy if exists "ads_public_insert" on storage.objects;
-create policy "ads_public_insert" on storage.objects for insert with check (bucket_id = 'ads');
+    drop policy if exists "ads_public_read" on storage.objects;
+    create policy "ads_public_read" on storage.objects for select using (bucket_id = 'ads');
+    drop policy if exists "ads_public_insert" on storage.objects;
+    create policy "ads_public_insert" on storage.objects for insert with check (bucket_id = 'ads');
+  end if;
+exception when others then raise notice 'storage schema setup skipped: %', sqlerrm;
+end $$;
 
 -- ========== DEFAULT LEVEL BONUSES ==========
 insert into public.level_bonuses(level, bonus_amount, is_active) values
