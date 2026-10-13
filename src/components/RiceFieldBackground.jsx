@@ -1,7 +1,7 @@
 import React from "react";
 
 const BG_URL =
-  "https://media.base44.com/images/public/6ac1daab80dea63a77ad8fa1/af9b954eb_rice-field-farm-landscape-beautiful-sunny-day-in-rice-fields-with-blue-sky-and-mountains-free-photo.jpg";
+  "https://media.base44.com/images/public/6ace3abc7d65c772599ec043/115a0c601_716663-computer-wallpaper-desktop-background-2560x1440-image.jpg";
 
 /**
  * Fixed full-screen rice-field background with a readability overlay.
