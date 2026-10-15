@@ -7,7 +7,7 @@ import { Button } from "./ui";
 const STATS = [
   { label: "Active Members", value: "Growing" },
   { label: "Total Paid Out", value: "More" },
-  { label: "Zistem Levels", value: "5 Levels" },
+  { label: "Zistem Levels", value: "6 Levels" },
   { label: "Max Downlines", value: "8 Direct" },
 ];
 
