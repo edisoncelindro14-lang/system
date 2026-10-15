@@ -457,15 +457,6 @@ export default function Admin() {
         return;
       }
 
-      // Prevent circular reference: new sponsor must not be in the member's own downline
-      if (newId) {
-        const downlineIds = getSponsorDownlineIds(memberId, allMembers);
-        if (downlineIds.has(newId)) {
-          toast.error("Cannot set a downline member as sponsor — circular reference");
-          return;
-        }
-      }
-
       const oldSponsor = oldSponsorId ? allMembers.find(m => m.id === oldSponsorId) : null;
       const newSponsor = newId ? allMembers.find(m => m.id === newId) : null;
 
@@ -1720,12 +1711,9 @@ export default function Admin() {
                   <select value={sponsorModal.newSponsorId} onChange={e => setSponsorModal({ ...sponsorModal, newSponsorId: e.target.value })}
                     className="w-full h-12 rounded-xl border border-gray-200 px-4 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20">
                     <option value="">None (root — no sponsor)</option>
-                    {(() => {
-                      const excluded = getSponsorDownlineIds(sponsorModal.member.id, members);
-                      return approvedMembers.filter(m => !excluded.has(m.id)).map(m => (
-                        <option key={m.id} value={m.id}>{m.full_name} (@{m.username}) — {m.direct_downlines_count || 0}/8 downlines</option>
-                      ));
-                    })()}
+                    {approvedMembers.filter(m => m.id !== sponsorModal.member.id).map(m => (
+                      <option key={m.id} value={m.id}>{m.full_name} (@{m.username}) — {m.direct_downlines_count || 0}/8 downlines</option>
+                    ))}
                   </select>
                 </div>
               </div>

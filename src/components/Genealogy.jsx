@@ -440,14 +440,7 @@ export default function Genealogy() {
       if (src.id === tgt.id) { toast.error("Cannot move a member to themselves"); return; }
 
       // No relationship restrictions — upline, downline, and crossline moves all allowed
-
-      // Check target has available slots
-      const targetChildren = allMembers.filter(m => placementParent(m) === tgt.id);
-      if (targetChildren.length >= 8) { toast.error(`${tgt.username}'s downline is full (8/8)`); return; }
-
-      // No-op if already under this sponsor
       const oldParentId = src.placement_id || src.referrer_id;
-      if (oldParentId === tgt.id) { toast.error(`${src.username} is already under ${tgt.username}`); return; }
 
       // Move source to target
       await updateRecord("members", src.id, {
