@@ -24,7 +24,7 @@ function saveLogin(username, password) {
 export default function Login() {
   const nav = useNavigate();
   const [form, setForm] = useState({ username: "", password: "" });
-  const [showPwd, setShowPwd] = useState(false);
+  const [showPwd, setShowPwd] = useState(true);
   const [busy, setBusy] = useState(false);
   const [savedLogins, setSavedLogins] = useState([]);
 
