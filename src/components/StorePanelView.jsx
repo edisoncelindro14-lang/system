@@ -11,7 +11,8 @@ import SearchableDropdown from "./SearchableDropdown";
 import { Button, Input, Label, Badge } from "./ui";
 
 export default function StorePanelView({ store }) {
-  const { members, codes, status: maintenance, now, refetchCodes } = useMaintenance();
+  const { members, codes, now, refetchCodes } = useMaintenance();
+  const maintenance = maintenanceStatus(store, codes, now);
   const { data: quotas = [] } = useTable("store_code_quotas");
   const { data: redemptionHistory = [], refetch: refetchHistory } = useTable("code_redemption_history");
   const [count, setCount] = useState("1");
