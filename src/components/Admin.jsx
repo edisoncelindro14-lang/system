@@ -744,7 +744,7 @@ export default function Admin() {
                     {(isSupAdmin || isOwner) && <button onClick={() => setOverrideModal(m)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors" title="Maintenance Override"><Clock className="w-4 h-4" /></button>}
 
                     {(isSupAdmin || isOwner) && <button onClick={() => setBalanceModal(m)} className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors" title="Edit Balance"><Wallet className="w-4 h-4" /></button>}
-                    {isExpired && getDirectDownlineCount(m.id) === 0 && (
+                    {m.id !== currentMemberId && m.username !== "admin" && m.username !== "supadmin" && (
                       <button onClick={() => setConfirmDelete({ type: "member", id: m.id, name: m.full_name || m.username })} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors" title="Delete Account"><Trash2 className="w-4 h-4" /></button>
                     )}
                   </div>
@@ -1821,9 +1821,15 @@ export default function Admin() {
                   : "Are you sure you want to delete this code?"}
               </p>
               <p className="text-sm font-semibold text-gray-700 mb-6 break-all">{confirmDelete.name}</p>
-              {confirmDelete.type === "member" && (
-                <p className="text-xs text-gray-400 mb-4">They can be restored later from the Deleted tab.</p>
-              )}
+              {confirmDelete.type === "member" && (() => {
+                const downlines = getDirectDownlineCount(confirmDelete.id);
+                return (
+                  <p className="text-xs text-gray-400 mb-4">
+                    {downlines > 0 && <span className="text-amber-600 font-medium">⚠️ This member has {downlines} direct downline{downlines !== 1 ? "s" : ""}. They will be orphaned but remain in the tree. </span>}
+                    They can be restored later from the Deleted tab.
+                  </p>
+                );
+              })()}
               <div className="flex gap-3">
                 <Button onClick={() => setConfirmDelete(null)} variant="outline" className="flex-1">Cancel</Button>
                 <Button onClick={confirmDeleteAction} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
