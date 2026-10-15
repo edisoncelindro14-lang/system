@@ -406,13 +406,9 @@ export default function Genealogy() {
 
       // No relationship restrictions — upline, downline, and crossline swaps all allowed
       if (isParentChild) {
-        // Parent-child swap: the child (now parent) needs a free slot
+        // Parent-child swap — no slot restrictions
         const child = aIsParentOfB ? b : a;
         const parent = aIsParentOfB ? a : b;
-        if ((child.direct_downlines_count || 0) >= 8) {
-          toast.error(`${child.username}'s downline is full (8/8) — cannot swap`);
-          return;
-        }
         const grandparentId = parent.placement_id || parent.referrer_id;
         // Child takes parent's position
         const childUpdates = {
