@@ -22,6 +22,7 @@ export default function Genealogy() {
   const [placementTarget, setPlacementTarget] = useState(null);
   const [placing, setPlacing] = useState(false);
   const [, setTick] = useState(0);
+  const selectedRef = useRef(null);
   const { data: members = [], isLoading, refetch: refetchMembers } = useTable("members");
   const { data: codes = [] } = useTable("maintenance_codes");
   const { currentMember } = useCurrentMember(members);
@@ -36,16 +37,19 @@ export default function Genealogy() {
 
   useEffect(() => {
     if (currentMember && !selected) setSelected(currentMember);
-  }, [currentMember]);
+    selectedRef.current = selected;
+  }, [currentMember, selected]);
 
   // Navigate to a member: push current selection onto history stack, reset pan to top.
+  // Uses a ref for the current selection so the callback identity never changes —
+  // this keeps TreeNode stable and prevents the entire tree from remounting on every click.
   const selectMember = useCallback((member) => {
-    if (selected && selected.id !== member.id) {
-      setHistory(h => [...h, selected]);
+    if (selectedRef.current && selectedRef.current.id !== member.id) {
+      setHistory(h => [...h, selectedRef.current]);
     }
     setSelected(member);
     setPan({ x: 0, y: 0 });
-  }, [selected]);
+  }, []);
 
   // Go back to the previous member in history.
   const goBack = useCallback(() => {
@@ -81,14 +85,14 @@ export default function Genealogy() {
     ? allApproved.filter(m => visibleIds.has(m.id))
     : allApproved, [allApproved, visibleIds]);
 
-  const searchResults = search
+  const searchResults = useMemo(() => search
     ? approvedMembers.filter(m =>
         m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
         m.username?.toLowerCase().includes(search.toLowerCase()) ||
         m.email?.toLowerCase().includes(search.toLowerCase()) ||
         m.referral_code?.toLowerCase().includes(search.toLowerCase())
       )
-    : [];
+    : [], [search, approvedMembers]);
 
   const maxDepth = isSuperAdmin ? Infinity : 5;
 
