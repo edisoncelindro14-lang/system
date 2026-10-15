@@ -63,8 +63,8 @@ export default function Landing() {
             </div>
           </div>
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold leading-tight mb-6">
-            "No Membership Fee !"
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">Bibili ka lang ng bigas na dati na natin ginagawa at i-share sa iba ang Zistem</span>
+            Lowest System budget with
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">Web App System and Human IT Continues Assistance</span>
           </h1>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/Register" className="w-full sm:w-auto">
