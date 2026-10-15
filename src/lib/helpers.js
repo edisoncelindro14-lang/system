@@ -2,7 +2,7 @@
 const MAINTENANCE_SECONDS = 2592000; // 720 hours — green banner after redeem
 const GRACE_SECONDS = 432000; // 120 hours — red banner grace countdown
 
-export function maintenanceStatus(member, codes = []) {
+export function maintenanceStatus(member, codes = [], now = Date.now()) {
   if (!member) return { isGreen: false, secondsLeft: 0, neverRedeemed: true };
 
   if (member.maintenance_override === "green") {
@@ -13,7 +13,7 @@ export function maintenanceStatus(member, codes = []) {
   }
 
   if (member.maintenance_timer_seconds > 0 && member.maintenance_timer_set_at) {
-    const elapsed = Math.floor((Date.now() - new Date(member.maintenance_timer_set_at).getTime()) / 1000);
+    const elapsed = Math.floor((now - new Date(member.maintenance_timer_set_at).getTime()) / 1000);
     const left = member.maintenance_timer_seconds - elapsed;
     return { isGreen: left > 0, secondsLeft: Math.max(0, left), neverRedeemed: false };
   }
@@ -24,7 +24,7 @@ export function maintenanceStatus(member, codes = []) {
     const lastUsed = usedCodes
       .map(c => new Date(c.used_at).getTime())
       .sort((a, b) => b - a)[0];
-    const left = Math.max(0, MAINTENANCE_SECONDS - Math.floor((Date.now() - lastUsed) / 1000));
+    const left = Math.max(0, MAINTENANCE_SECONDS - Math.floor((now - lastUsed) / 1000));
     return { isGreen: left > 0, secondsLeft: left, neverRedeemed: false };
   }
 

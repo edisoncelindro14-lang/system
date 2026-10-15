@@ -1,40 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { CalendarCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "./ui";
 import SearchableDropdown from "./SearchableDropdown";
 import { formatTime } from "../lib/helpers";
-import { MONTHLY_REDEEM_TARGET, monthStart, monthEnd, monthDayLabels, monthlyCounts } from "../lib/monthly";
+import { MONTHLY_REDEEM_TARGET, monthStart, monthDayLabels, monthlyCounts } from "../lib/monthly";
 
 const fmt = d => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const fmtMonth = d => d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
 /**
- * Monthly redeem monitor. `rows` = [{ username, usedAts: [timestamps of redeemed codes] }]
+ * Monthly redeem monitor. `rows` = [{ username, usedAts: [timestamps of redeemed codes], maintenance? }]
  * Each member needs at least MONTHLY_REDEEM_TARGET redeemed codes per calendar month.
  */
 export default function WeeklyRedeemMonitor({ rows, title = "Monthly Redeem Monitor", showFilter = true, maintenance = null }) {
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState("");
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
   const start = monthStart(new Date(), offset);
-  const end = monthEnd(start);
   const days = monthDayLabels(start);
-  // Personal maintenance uses the same status as the top banner, not month-start.
-  const ACTIVE_HOURS = 720;
-  const INACTIVE_HOURS = 120;
-  const activeSecondsLeft = maintenance
-    ? (maintenance.isGreen ? maintenance.secondsLeft : 0)
-    : Math.max(0, Math.floor((start.getTime() + ACTIVE_HOURS * 3600000 - now) / 1000));
-  const inactiveSecondsLeft = maintenance
-    ? (maintenance.isGreen ? 0 : maintenance.secondsLeft)
-    : Math.max(0, Math.floor((start.getTime() + INACTIVE_HOURS * 3600000 - now) / 1000));
+  // Filtering selects that member's live maintenance countdown, not month-start.
+  const currentMaintenance = filter ? rows.find(r => r.username === filter)?.maintenance : maintenance;
+  const activeSecondsLeft = currentMaintenance?.isGreen ? currentMaintenance.secondsLeft : 0;
+  const inactiveSecondsLeft = currentMaintenance && !currentMaintenance.isGreen ? currentMaintenance.secondsLeft : 0;
   const data = rows.filter(r => !filter || r.username === filter).map(r => {
     const counts = monthlyCounts(r.usedAts, start);
-    return { username: r.username, days: counts, total: counts.reduce((a, b) => a + b, 0) };
+    return { username: r.username, maintenance: r.maintenance || maintenance, days: counts, total: counts.reduce((a, b) => a + b, 0) };
   }).sort((a, b) => a.total - b.total || a.username.localeCompare(b.username));
 
   return (
@@ -88,11 +77,7 @@ export default function WeeklyRedeemMonitor({ rows, title = "Monthly Redeem Moni
                     </Badge>
                     {offset === 0 && (
                       <span className="text-xs text-gray-500">
-                        ⏱ {maintenance
-                          ? `${Math.floor(maintenance.secondsLeft / 3600)}h ${formatTime(maintenance.secondsLeft % 3600)}`
-                          : r.total >= MONTHLY_REDEEM_TARGET
-                            ? `${Math.floor(activeSecondsLeft / 3600)}h ${formatTime(activeSecondsLeft % 3600)}`
-                            : `${Math.floor(inactiveSecondsLeft / 3600)}h ${formatTime(inactiveSecondsLeft % 3600)}`}
+                        ⏱ {Math.floor((r.maintenance?.secondsLeft ?? 0) / 3600)}h {formatTime((r.maintenance?.secondsLeft ?? 0) % 3600)}
                       </span>
                     )}
                   </div>

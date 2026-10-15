@@ -5,7 +5,7 @@ import { useTable } from "./useData";
 
 const MaintenanceContext = createContext(null);
 
-// The banner and Code Cabinet share both the maintenance data and the same tick.
+// The banner, Code Cabinet, and Store share maintenance data and the same tick.
 export function MaintenanceProvider({ children }) {
   const memberId = getSessionMemberId();
   const { data: members = [], refetch: refetchMembers } = useTable("members", { enabled: !!memberId });
@@ -19,11 +19,12 @@ export function MaintenanceProvider({ children }) {
     return () => { clearInterval(tick); clearInterval(refresh); };
   }, [memberId, refetchMembers, refetchCodes]);
 
+  const now = Date.now();
   const member = members.find(m => m.id === memberId) || null;
-  const status = member ? maintenanceStatus(member, codes) : null;
+  const status = member ? maintenanceStatus(member, codes, now) : null;
 
   return (
-    <MaintenanceContext.Provider value={{ member, members, codes, status, refetchCodes }}>
+    <MaintenanceContext.Provider value={{ member, members, codes, status, now, refetchCodes }}>
       {children}
     </MaintenanceContext.Provider>
   );
