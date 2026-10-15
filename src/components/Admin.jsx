@@ -416,14 +416,53 @@ export default function Admin() {
     setSavingProfile(false);
   }
 
+  // Collect a member's entire referrer-based downline (for circular-reference prevention)
+  function getSponsorDownlineIds(memberId, allMembers) {
+    const ids = new Set([memberId]);
+    const stack = [memberId];
+    while (stack.length) {
+      const cur = stack.pop();
+      allMembers.filter(m => m.referrer_id === cur).forEach(m => {
+        if (!ids.has(m.id)) { ids.add(m.id); stack.push(m.id); }
+      });
+    }
+    return ids;
+  }
+
   async function changeSponsor(memberId, newSponsorId) {
     try {
-      const member = members.find(m => m.id === memberId);
-      const oldSponsor = members.find(m => m.id === member.referrer_id);
-      const newSponsor = newSponsorId ? members.find(m => m.id === newSponsorId) : null;
-      await updateRecord("members", memberId, { referrer_id: newSponsorId || null });
+      // Fetch fresh members so repeatable swaps always use current DB state
+      const { data: freshMembers } = await supabase.from("members").select("*");
+      const allMembers = freshMembers || members;
+      const member = allMembers.find(m => m.id === memberId);
+      if (!member) { toast.error("Member not found"); return; }
+
+      const oldSponsorId = member.referrer_id || null;
+      const newId = newSponsorId || null;
+
+      // No-op if the sponsor isn't actually changing
+      if (newId === oldSponsorId) {
+        toast.success("Sponsor unchanged");
+        setSponsorModal(null);
+        return;
+      }
+
+      // Prevent circular reference: new sponsor must not be in the member's own downline
+      if (newId) {
+        const downlineIds = getSponsorDownlineIds(memberId, allMembers);
+        if (downlineIds.has(newId)) {
+          toast.error("Cannot set a downline member as sponsor — circular reference");
+          return;
+        }
+      }
+
+      const oldSponsor = oldSponsorId ? allMembers.find(m => m.id === oldSponsorId) : null;
+      const newSponsor = newId ? allMembers.find(m => m.id === newId) : null;
+
+      await updateRecord("members", memberId, { referrer_id: newId });
       if (oldSponsor) await updateRecord("members", oldSponsor.id, { direct_downlines_count: Math.max(0, (oldSponsor.direct_downlines_count || 0) - 1) });
       if (newSponsor) await updateRecord("members", newSponsor.id, { direct_downlines_count: (newSponsor.direct_downlines_count || 0) + 1 });
+
       toast.success("Sponsor updated");
       setSponsorModal(null);
       window.location.reload();
@@ -1670,9 +1709,12 @@ export default function Admin() {
                   <select value={sponsorModal.newSponsorId} onChange={e => setSponsorModal({ ...sponsorModal, newSponsorId: e.target.value })}
                     className="w-full h-12 rounded-xl border border-gray-200 px-4 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20">
                     <option value="">None (root — no sponsor)</option>
-                    {approvedMembers.filter(m => m.id !== sponsorModal.member?.id).map(m => (
-                      <option key={m.id} value={m.id}>{m.full_name} (@{m.username}) — {m.direct_downlines_count || 0}/8 downlines</option>
-                    ))}
+                    {(() => {
+                      const excluded = getSponsorDownlineIds(sponsorModal.member.id, members);
+                      return approvedMembers.filter(m => !excluded.has(m.id)).map(m => (
+                        <option key={m.id} value={m.id}>{m.full_name} (@{m.username}) — {m.direct_downlines_count || 0}/8 downlines</option>
+                      ));
+                    })()}
                   </select>
                 </div>
               </div>
