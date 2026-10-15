@@ -11,7 +11,7 @@ import { Button, Badge } from "./ui";
 import AutoRedeemPanel from "./AutoRedeemPanel";
 import WeeklyRedeemMonitor from "./WeeklyRedeemMonitor";
 
-const REDEEM_UNLOCK_THRESHOLD = 7200; // redeem enabled when 12h maintenance countdown has ≤2h left
+const REDEEM_UNLOCK_THRESHOLD = 7200; // redeem enabled when 720h maintenance countdown has ≤2h left
 
 export default function CodeCabinet() {
   const nav = useNavigate();
@@ -70,7 +70,7 @@ export default function CodeCabinet() {
   }
 
   const maintenance = currentMember ? maintenanceStatus(currentMember, codes) : null;
-  // Redeem is locked unless: never redeemed before, maintenance expired, or ≤1h left on the 12h countdown
+  // Redeem is locked unless: never redeemed before, maintenance expired, or ≤2h left on the 720h countdown
   const canRedeem = !maintenance || !maintenance.isGreen || maintenance.secondsLeft <= REDEEM_UNLOCK_THRESHOLD;
   const lockSeconds = maintenance && maintenance.isGreen ? maintenance.secondsLeft : 0;
 

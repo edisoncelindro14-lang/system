@@ -46,7 +46,7 @@ export function MaintenanceBanner() {
         </span>
         {(isGreen || secondsLeft > 0) && (
           <span className={`font-normal text-xs ${isGreen ? "text-blue-100" : "text-gray-400"}`}>
-            {isGreen ? "12 Hours" : "120 Hours"}
+            {isGreen ? "720 Hours" : "120 Hours"}
           </span>
         )}
       </div>

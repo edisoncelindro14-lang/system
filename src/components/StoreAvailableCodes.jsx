@@ -6,7 +6,7 @@ import { redeemCodeForMember } from "../lib/redeem";
 import { Button } from "./ui";
 import SearchableDropdown from "./SearchableDropdown";
 
-const REDEEM_UNLOCK_THRESHOLD = 0; // redeem enabled only when 12h maintenance cycle is fully expired
+const REDEEM_UNLOCK_THRESHOLD = 0; // redeem enabled only when 720h maintenance cycle is fully expired
 
 export default function StoreAvailableCodes({ storeId, members, codes, refetchCodes, refetchHistory, onRedeemDone }) {
   const [selectedUser, setSelectedUser] = useState("");
@@ -45,7 +45,7 @@ export default function StoreAvailableCodes({ storeId, members, codes, refetchCo
 
     const status = maintenanceStatus(member, codes);
     if (status.isGreen && status.secondsLeft > REDEEM_UNLOCK_THRESHOLD) {
-      toast.error(`Redeem unlocks in ${formatTime(status.secondsLeft - REDEEM_UNLOCK_THRESHOLD)} when the 12-hour cycle ends.`);
+      toast.error(`Redeem unlocks in ${formatTime(status.secondsLeft - REDEEM_UNLOCK_THRESHOLD)} when the 720-hour cycle ends.`);
       return;
     }
 
