@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GitBranch, Search, ArrowRight, Users, ZoomIn, ZoomOut, User, Clock, Activity, UserPlus, X, Heart, ChevronLeft } from "lucide-react";
+import { GitBranch, Search, ArrowRight, Users, ZoomIn, ZoomOut, User, Clock, Activity, UserPlus, X, Heart, ChevronLeft, ArrowUpDown } from "lucide-react";
 import { useTable, useCurrentMember, updateRecord } from "../lib/useData";
 import { Button } from "./ui";
 import { maintenanceStatus, formatTime } from "../lib/helpers";
@@ -20,6 +20,7 @@ export default function Genealogy() {
   const treeRef = useRef(null);
   const [history, setHistory] = useState([]);
   const [placementTarget, setPlacementTarget] = useState(null);
+  const [swapTarget, setSwapTarget] = useState(null);
   const [placing, setPlacing] = useState(false);
   const [, setTick] = useState(0);
   const selectedRef = useRef(null);
@@ -96,7 +97,10 @@ export default function Genealogy() {
 
   const maxDepth = isSuperAdmin ? Infinity : 5;
 
-  const TreeNode = useCallback(function TreeNode({ member, level = 0 }) {
+  const TreeNode = useCallback(function TreeNode({ member, level = 0, ancestors = [] }) {
+    // Cycle guard — prevents infinite recursion if data is inconsistent
+    if (ancestors.includes(member.id)) return null;
+    const nextAncestors = [...ancestors, member.id];
     const downlines = approvedMembers.filter(m => (m.placement_id || m.referrer_id) === member.id);
     const isRoot = level === 0;
     const status = maintenanceStatus(member, codes);
@@ -170,6 +174,14 @@ export default function Genealogy() {
               <UserPlus className="w-3 h-3" /> Place Here
             </button>
           )}
+          {level > 0 && isSuperAdmin && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setSwapTarget(member); }}
+              className="relative mt-2 w-full bg-white/25 hover:bg-white/40 backdrop-blur-sm rounded-lg py-1.5 text-[10px] font-bold flex items-center justify-center gap-1 transition-all border border-white/30 hover:border-white/50"
+            >
+              <ArrowUpDown className="w-3 h-3" /> Swap with Upline
+            </button>
+          )}
         </div>
 
         {/* Children with T-junction connectors */}
@@ -197,7 +209,7 @@ export default function Genealogy() {
                     )}
                     {/* Vertical drop from horizontal bar to child card */}
                     <div className="w-1 h-6 rounded-full bg-gradient-to-b from-blue-500 to-emerald-400" />
-                    <TreeNode member={d} level={level + 1} />
+                    <TreeNode member={d} level={level + 1} ancestors={nextAncestors} />
                   </div>
                 );
               })}
@@ -213,7 +225,7 @@ export default function Genealogy() {
         )}
       </div>
     );
-  }, [approvedMembers, codes, selectMember, lobbyMembers, setPlacementTarget, maxDepth]);
+  }, [approvedMembers, codes, selectMember, lobbyMembers, setPlacementTarget, setSwapTarget, maxDepth, isSuperAdmin]);
 
   async function handlePlaceMember(lobbyMember) {
     setPlacing(true);
@@ -251,6 +263,54 @@ export default function Genealogy() {
       await refetchMembers();
     } catch (err) {
       toast.error(err.message || "Failed to place member");
+    }
+    setPlacing(false);
+  }
+
+  async function handleSwapPosition() {
+    if (!swapTarget) return;
+    setPlacing(true);
+    try {
+      const { data: freshMembers } = await supabase.from("members").select("*");
+      const allMembers = freshMembers || members;
+      const child = allMembers.find(m => m.id === swapTarget.id);
+      if (!child) { toast.error("Member not found"); return; }
+
+      const parentId = child.placement_id || child.referrer_id;
+      if (!parentId) { toast.error("This member has no upline to swap with"); return; }
+
+      const parent = allMembers.find(m => m.id === parentId);
+      if (!parent) { toast.error("Upline not found"); return; }
+
+      if ((child.direct_downlines_count || 0) >= 8) {
+        toast.error(`${child.username}'s downline is full (8/8) — cannot swap`);
+        return;
+      }
+
+      const grandparentId = parent.placement_id || parent.referrer_id;
+
+      // Child takes parent's position in the tree
+      const childUpdates = {
+        placement_id: grandparentId || null,
+        tree_level: parent.tree_level || 0,
+        direct_downlines_count: (child.direct_downlines_count || 0) + 1,
+      };
+      // If parent was root (no grandparent), clear referrer_id too to avoid cycle
+      if (!grandparentId) childUpdates.referrer_id = null;
+      await updateRecord("members", child.id, childUpdates);
+
+      // Parent takes child's old position (now under child)
+      await updateRecord("members", parent.id, {
+        placement_id: child.id,
+        tree_level: child.tree_level || 0,
+        direct_downlines_count: Math.max(0, (parent.direct_downlines_count || 0) - 1),
+      });
+
+      toast.success(`Positions swapped: ${child.username} ↔ ${parent.username}`);
+      setSwapTarget(null);
+      await refetchMembers();
+    } catch (err) {
+      toast.error(err?.message || "Failed to swap positions");
     }
     setPlacing(false);
   }
@@ -493,6 +553,30 @@ export default function Genealogy() {
                   <UserPlus className="w-4 h-4 text-amber-500" />
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Swap Position Modal */}
+      {swapTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSwapTarget(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Swap Positions</h3>
+                <p className="text-sm text-amber-600 font-medium">
+                  @{swapTarget.username} ↔ @{members.find(m => m.id === (swapTarget.placement_id || swapTarget.referrer_id))?.username || "root"}
+                </p>
+              </div>
+              <button onClick={() => setSwapTarget(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              This will swap the positions of this downline and their upline in the genealogy tree. The downline moves up and the upline moves down. Each member keeps their own downlines — no username is duplicated.
+            </p>
+            <div className="flex gap-3">
+              <Button onClick={handleSwapPosition} disabled={placing} className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white">Confirm Swap</Button>
+              <Button onClick={() => setSwapTarget(null)} variant="outline" className="flex-1">Cancel</Button>
             </div>
           </div>
         </div>
