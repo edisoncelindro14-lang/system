@@ -107,7 +107,7 @@ export default function StorePanelView({ store }) {
         {q.remaining < 1 && <p className="text-sm text-red-500 mt-3">No remaining codes. Ask the admin to add more.</p>}
       </div>
 
-      <WeeklyRedeemMonitor title="Weekly Redeemed Codes (Mon – Sun)" rows={monitorRows} />
+      <WeeklyRedeemMonitor title="Monthly Redeemed Codes" rows={monitorRows} />
 
       {/* Available codes designated to members — searchable list */}
       <StoreAvailableCodes

@@ -131,7 +131,7 @@ export default function CodeCabinet() {
       )}
 
       <WeeklyRedeemMonitor
-        title="My Weekly Redeemed Codes"
+        title="My Monthly Redeemed Codes"
         showFilter={false}
         rows={[{ username: currentMember.username, usedAts: codes.filter(c => c.is_used && c.used_by_member_id === currentMember.id && c.used_at).map(c => c.used_at) }]}
       />
