@@ -339,6 +339,21 @@ export default function Genealogy() {
     }
   }
 
+  // Recount direct_downlines_count from actual children for given member IDs
+  async function recountDownlines(memberIds, allMembers) {
+    const affected = new Set();
+    for (const id of memberIds) {
+      if (!id) continue;
+      const actualCount = allMembers.filter(m => (m.placement_id || m.referrer_id) === id).length;
+      const member = allMembers.find(m => m.id === id);
+      if (member && (member.direct_downlines_count || 0) !== actualCount) {
+        await updateRecord("members", id, { direct_downlines_count: actualCount });
+        member.direct_downlines_count = actualCount;
+      }
+    }
+    return affected;
+  }
+
   async function handleSwapPosition() {
     if (!swapSource || !swapTarget) return;
     setPlacing(true);
@@ -377,30 +392,36 @@ export default function Genealogy() {
         const childUpdates = {
           placement_id: grandparentId || null,
           tree_level: parent.tree_level || 0,
-          direct_downlines_count: (child.direct_downlines_count || 0) + 1,
         };
         if (!grandparentId) childUpdates.referrer_id = null;
         await updateRecord("members", child.id, childUpdates);
+        child.placement_id = grandparentId || null;
         // Parent takes child's position
         await updateRecord("members", parent.id, {
           placement_id: child.id,
           tree_level: child.tree_level || 0,
-          direct_downlines_count: Math.max(0, (parent.direct_downlines_count || 0) - 1),
         });
+        parent.placement_id = child.id;
+        // Recount downlines from actual data — no manual +1/-1
+        await recountDownlines([child.id, parent.id, grandparentId].filter(Boolean), allMembers);
         // Update subtree levels for both swapped members
         await updateSubtreeLevels(child.id, parent.tree_level || 0, allMembers);
         await updateSubtreeLevels(parent.id, child.tree_level || 0, allMembers);
         toast.success(`Positions swapped: ${child.username} ↔ ${parent.username}`);
       } else {
-        // Crossline swap: exchange placement_id and tree_level, counts unchanged
+        // Crossline swap: exchange placement_id and tree_level
         await updateRecord("members", a.id, {
           placement_id: bParentId || null,
           tree_level: b.tree_level || 0,
         });
+        a.placement_id = bParentId || null;
         await updateRecord("members", b.id, {
           placement_id: aParentId || null,
           tree_level: a.tree_level || 0,
         });
+        b.placement_id = aParentId || null;
+        // Recount downlines from actual data for all affected members
+        await recountDownlines([a.id, b.id, aParentId, bParentId].filter(Boolean), allMembers);
         // Update subtree levels for both swapped members
         await updateSubtreeLevels(a.id, b.tree_level || 0, allMembers);
         await updateSubtreeLevels(b.id, a.tree_level || 0, allMembers);
