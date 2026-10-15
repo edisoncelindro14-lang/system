@@ -5,6 +5,17 @@ export function placementParent(member) {
   return member.referrer_id || null;
 }
 
+// Persisted slot order wins; older members have a stable chronological fallback.
+export function placementChildren(members, parentId) {
+  return members.filter(member => placementParent(member) === parentId).sort((a, b) => {
+    const orderA = a.placement_order ?? Infinity;
+    const orderB = b.placement_order ?? Infinity;
+    if (orderA !== orderB) return orderA < orderB ? -1 : 1;
+    const dateOrder = (a.created_date || a.created_at || "").localeCompare(b.created_date || b.created_at || "");
+    return dateOrder || a.id.localeCompare(b.id);
+  });
+}
+
 // Exchange two positions, not just their incoming links: reconnect children too.
 // This works for full nodes, roots, siblings, and ancestors at any distance,
 // without circular links, extra slots, or changes to referral sponsors.
@@ -35,6 +46,15 @@ export function planPositionSwap(members, sourceId, targetId) {
 
   const sourceParent = placementParent(byId.get(sourceId));
   const targetParent = placementParent(byId.get(targetId));
+  // Normalize only the two original sibling groups, then exchange slot owners.
+  // Saving their neighbors too prevents legacy (unordered) members shifting on refetch.
+  const slotOrders = new Map();
+  const approved = members.filter(member => member.status === "approved");
+  for (const parentId of new Set([sourceParent, targetParent])) {
+    placementChildren(approved, parentId).forEach((member, index) => {
+      slotOrders.set(exchange(member.id), index + 1);
+    });
+  }
   const affectedRoots = new Set([sourceId, targetId]);
   const affected = [sourceId, targetId];
   for (let i = 0; i < affected.length; i++) {
@@ -45,8 +65,11 @@ export function planPositionSwap(members, sourceId, targetId) {
   if (sourceParent) affectedRoots.add(sourceParent);
   if (targetParent) affectedRoots.add(targetParent);
 
-  return members.filter(member => affectedRoots.has(member.id)).flatMap(member => {
+  return members.filter(member => affectedRoots.has(member.id) || slotOrders.has(member.id)).flatMap(member => {
     const updates = {};
+    if (slotOrders.has(member.id) && member.placement_order !== slotOrders.get(member.id)) {
+      updates.placement_order = slotOrders.get(member.id);
+    }
     const parentId = parents.get(member.id);
     if (parentId !== placementParent(member)) updates.placement_id = parentId;
     if (levels.has(member.id) && member.tree_level !== levels.get(member.id)) {

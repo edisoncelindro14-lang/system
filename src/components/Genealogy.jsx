@@ -7,7 +7,7 @@ import { Button } from "./ui";
 import { maintenanceStatus, formatTime } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
 import { supabase } from "../lib/supabase";
-import { placementParent, planPositionSwap } from "../lib/genealogyPositions";
+import { placementParent, placementChildren, planPositionSwap } from "../lib/genealogyPositions";
 import toast from "react-hot-toast";
 
 export default function Genealogy() {
@@ -175,7 +175,7 @@ export default function Genealogy() {
     // Cycle guard — prevents infinite recursion if data is inconsistent
     if (ancestors.includes(member.id)) return null;
     const nextAncestors = [...ancestors, member.id];
-    const downlines = approvedMembers.filter(m => placementParent(m) === member.id);
+    const downlines = placementChildren(approvedMembers, member.id);
     const isRoot = level === 0;
     const status = maintenanceStatus(member, codes);
     const isActive = status.isGreen;
@@ -415,12 +415,22 @@ export default function Genealogy() {
         if (rollbackFailed) throw new Error("Swap interrupted. Some positions could not be restored; refresh and check the tree.");
         throw writeError;
       }
+      await refetchMembers();
+      // Keep the viewed position in place when its occupant was one of the pair.
+      setSelected(previous => {
+        const occupantId = previous?.id === swapSource.id ? swapTarget.id
+          : previous?.id === swapTarget.id ? swapSource.id : null;
+        if (!occupantId) return previous;
+        const occupant = allMembers.find(member => member.id === occupantId);
+        return { ...occupant, ...changes.find(change => change.id === occupantId)?.updates };
+      });
       toast.success(`Positions swapped: ${swapSource.username} ↔ ${swapTarget.username}`);
       setSwapSource(null);
       setSwapTarget(null);
-      await refetchMembers();
     } catch (err) {
-      toast.error(err?.message || "Failed to swap positions");
+      toast.error(err?.message?.includes("placement_order")
+        ? "Position slots are not configured in this database. Apply migration 011_genealogy_position_order.sql in Supabase, then try again."
+        : err?.message || "Failed to swap positions");
     } finally {
       setPlacing(false);
     }

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { placementParent, planPositionSwap } from "./genealogyPositions.js";
+import { placementParent, placementChildren, planPositionSwap } from "./genealogyPositions.js";
 
 function member(id, parent, level, extra = {}) {
   return { id, placement_id: parent, referrer_id: parent, tree_level: level, status: "approved", direct_downlines_count: 0, ...extra };
@@ -69,4 +69,60 @@ test("legacy referral-based placement and same-member no-op", () => {
 
 test("missing members fail before any updates", () => {
   assert.throws(() => planPositionSwap(chain, "ben", "missing"), /Member not found/);
+});
+
+function positions(members) {
+  const result = new Map();
+  function visit(parentId, path) {
+    placementChildren(members, parentId).forEach((m, index) => {
+      const slot = `${path}/${index + 1}`;
+      result.set(slot, m.id);
+      visit(m.id, slot);
+    });
+  }
+  visit(null, "");
+  return result;
+}
+
+function assertExactExchange(before, after, a, b) {
+  const expected = new Map([...positions(before)].map(([slot, id]) => [slot, id === a ? b : id === b ? a : id]));
+  assert.deepEqual(positions(after), expected, "every slot stays in place with only the two occupants exchanged");
+  assert.deepEqual(positions([...after].reverse()), expected, "slots survive unordered database refetches");
+  validTree(after);
+}
+
+test("K and Mike exchange their exact sibling slots even without children", () => {
+  const tree = [member("root", null, 0), member("first", "root", 1), member("k", "root", 1), member("mike", "root", 1), member("last", "root", 1)]
+    .map((m, index) => ({ ...m, created_at: `2026-10-15T00:00:0${index}Z` }));
+  const after = swap(tree, "k", "mike");
+  assertExactExchange(tree, after, "k", "mike");
+  assertExactExchange(after, swap(after, "k", "mike"), "k", "mike");
+});
+
+test("crossline swaps retain exact slots and existing neighbor positions", () => {
+  const tree = [member("root", null, 0),
+    member("left", "root", 1, { placement_order: 1 }), member("right", "root", 1, { placement_order: 2 }),
+    member("neighbor", "left", 2, { placement_order: 1 }), member("k", "left", 2, { placement_order: 4 }),
+    member("mike", "right", 2, { placement_order: 2 }), member("other", "right", 2),
+    member("k-child", "k", 3), member("mike-child", "mike", 3)];
+  assertExactExchange(tree, swap(tree, "k", "mike"), "k", "mike");
+});
+
+for (const [a, b] of [["ben", "an"], ["an", "ben"], ["ben", "middle"], ["root", "leaf"]]) {
+  test(`ancestor swap ${a} / ${b} keeps every exact slot`, () => {
+    const tree = [...chain, member("neighbor", "root", 1), member("side", "middle", 3)];
+    assertExactExchange(tree, swap(tree, a, b), a, b);
+  });
+}
+
+test("placement slots do not exchange identity, sponsors, balances, or account dates", () => {
+  const tree = [member("root", null, 0), member("k", "root", 1, { username: "k", available_balance: 123, created_at: "2026-01-01", maintenance_override: "green" }),
+    member("mike", "root", 1, { username: "mike", available_balance: 456, created_at: "2026-02-01", maintenance_override: "red" })];
+  const after = swap(tree, "k", "mike");
+  for (const m of after) {
+    const original = tree.find(old => old.id === m.id);
+    for (const key of ["username", "referrer_id", "available_balance", "created_at", "maintenance_override"]) {
+      assert.equal(m[key], original[key], `${key} stays with the member`);
+    }
+  }
 });

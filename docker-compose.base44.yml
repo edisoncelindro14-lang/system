@@ -29,6 +29,7 @@ services:
         psql -h db -U postgres -f /migrations/000_local_init.sql &&
         psql -h db -U postgres -f /migrations/008_redemption_history.sql &&
         psql -h db -U postgres -f /migrations/010_auto_redeem_server.sql &&
+        psql -v ON_ERROR_STOP=1 -h db -U postgres -f /migrations/011_genealogy_position_order.sql &&
         echo "Migrations complete"
 
   # Local stand-in for pg_cron: fires the server-side auto-redeem every 30s (it only acts once a day at the admin time)
