@@ -297,6 +297,21 @@ export default function Genealogy() {
     return ids;
   }
 
+  // Recursively update tree_level for all descendants of a member
+  async function updateSubtreeLevels(memberId, parentLevel, allMembers) {
+    const visited = new Set([memberId]);
+    const stack = [{ id: memberId, level: parentLevel }];
+    while (stack.length) {
+      const { id, level } = stack.pop();
+      const children = allMembers.filter(m => (m.placement_id || m.referrer_id) === id && !visited.has(m.id));
+      for (const child of children) {
+        visited.add(child.id);
+        await updateRecord("members", child.id, { tree_level: level + 1 });
+        stack.push({ id: child.id, level: level + 1 });
+      }
+    }
+  }
+
   async function handleSwapPosition() {
     if (!swapSource || !swapTarget) return;
     setPlacing(true);
@@ -345,6 +360,9 @@ export default function Genealogy() {
           tree_level: child.tree_level || 0,
           direct_downlines_count: Math.max(0, (parent.direct_downlines_count || 0) - 1),
         });
+        // Update subtree levels for both swapped members
+        await updateSubtreeLevels(child.id, parent.tree_level || 0, allMembers);
+        await updateSubtreeLevels(parent.id, child.tree_level || 0, allMembers);
         toast.success(`Positions swapped: ${child.username} ↔ ${parent.username}`);
       } else {
         // Crossline swap: exchange placement_id and tree_level, counts unchanged
@@ -356,6 +374,9 @@ export default function Genealogy() {
           placement_id: aParentId || null,
           tree_level: a.tree_level || 0,
         });
+        // Update subtree levels for both swapped members
+        await updateSubtreeLevels(a.id, b.tree_level || 0, allMembers);
+        await updateSubtreeLevels(b.id, a.tree_level || 0, allMembers);
         toast.success(`Positions swapped: ${a.username} ↔ ${b.username}`);
       }
 
