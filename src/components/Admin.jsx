@@ -156,7 +156,7 @@ export default function Admin() {
     { id: "genealogy", label: "Genealogy", icon: GitBranch, active: "from-pink-500 to-rose-600", inactive: "bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100" },
     ...(tabVisibility.monitoring ? [{ id: "monitoring", label: "Monitoring", icon: Eye, active: "from-cyan-500 to-sky-600", inactive: "bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100" }] : []),
     { id: "gcash", label: "GCash", icon: Smartphone, active: "from-indigo-500 to-blue-600", inactive: "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100" },
-    ...(deletedMembers.length > 0 ? [{ id: "deleted", label: `Deleted (${deletedMembers.length})`, icon: Trash2, active: "from-red-500 to-rose-600", inactive: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100" }] : []),
+    { id: "deleted", label: `Deleted${deletedMembers.length > 0 ? ` (${deletedMembers.length})` : ""}`, icon: Trash2, active: "from-red-500 to-rose-600", inactive: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100" },
     ...(canManageTabs ? [{ id: "roles", label: "Roles", icon: UserCog, active: "from-fuchsia-500 to-pink-600", inactive: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-100" }] : []),
     ...(tabVisibility.subadmin ? [{ id: "subadmins", label: "Sub-Admins", icon: Shield, active: "from-emerald-500 to-green-600", inactive: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" }] : []),
     { id: "store", label: "Store", icon: Store, active: "from-teal-500 to-cyan-600", inactive: "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100" },
@@ -310,10 +310,10 @@ export default function Admin() {
 
   async function restoreMember(id) {
     try {
-      let { error } = await updateRecord("members", id, { status: "approved", deleted_date: null });
-      if (error) ({ error } = await supabase.from("members").update({ status: "approved" }).eq("id", id));
+      let { error } = await updateRecord("members", id, { status: "pending", deleted_date: null });
+      if (error) ({ error } = await supabase.from("members").update({ status: "pending" }).eq("id", id));
       if (error) throw error;
-      toast.success("Account restored");
+      toast.success("Account restored as inactive — re-approve to activate");
       window.location.reload();
     } catch (err) { toast.error(err?.message || "Failed to restore"); }
   }
@@ -1203,19 +1203,20 @@ export default function Admin() {
         <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="p-4 border-b border-gray-100 bg-red-50">
             <h2 className="font-semibold text-red-900 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Deleted Accounts</h2>
-            <p className="text-sm text-red-600 mt-1">These accounts have been deleted. You can restore them at any time.</p>
+            <p className="text-sm text-red-600 mt-1">These accounts have been deleted. Restored accounts return as inactive (pending) and must be re-approved to activate.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-gray-100">
-                {["Name", "Username", "Deleted On", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
+                {["Name", "Username", "Role", "Deleted On", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
               </tr></thead>
               <tbody>
-                {deletedMembers.length === 0 ? <tr><td colSpan="4" className="text-center py-12 text-gray-400">No deleted accounts</td></tr> :
+                {deletedMembers.length === 0 ? <tr><td colSpan="5" className="text-center py-12 text-gray-400">No deleted accounts</td></tr> :
                 deletedMembers.map(m => (
                   <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{m.full_name}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">@{m.username}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{m.role || "member"}</td>
                     <td className="px-6 py-4 text-sm text-gray-400">{m.deleted_date ? formatDate(m.deleted_date, "MMM d, yyyy") : "—"}</td>
                     <td className="px-6 py-4">
                       <Button onClick={() => restoreMember(m.id)} size="sm" className="bg-teal-600 text-white h-8 px-3 text-xs"><RotateCcw className="w-3 h-3 mr-1" /> Restore</Button>
