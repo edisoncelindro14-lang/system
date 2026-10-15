@@ -11,7 +11,7 @@ const STATS = [
   { label: "Max Downlines", value: "8 Direct" },
 ];
 
-const LOGO_URL = "https://media.base44.com/images/public/6acdff0f22869b52739d919a/97535a1fd_Firefly1.png";
+const LOGO_URL = "https://media.base44.com/images/public/6ad0559cb2cdb34b8de882bb/05c8060f1_Firefly3.png";
 const POSTER_URL = "https://media.base44.com/images/public/6ac1daab80dea63a77ad8fa1/bc22b8f15_LOA-EdisonNoconCelindro3.png";
 const BG_URL = "https://media.base44.com/images/public/6ace3abc7d65c772599ec043/115a0c601_716663-computer-wallpaper-desktop-background-2560x1440-image.jpg";
 

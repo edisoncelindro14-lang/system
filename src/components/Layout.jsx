@@ -9,7 +9,7 @@ import { GCashButton } from "./GCashButton";
 import RiceFieldBackground from "./RiceFieldBackground";
 import { clearDataCache } from "../lib/useData";
 
-const LOGO_URL = "https://media.base44.com/images/public/6acdff0f22869b52739d919a/97535a1fd_Firefly1.png";
+const LOGO_URL = "https://media.base44.com/images/public/6ad0559cb2cdb34b8de882bb/05c8060f1_Firefly3.png";
 
 const NAV_ITEMS = [
   { name: "Dashboard", icon: LayoutDashboard, path: "Dashboard" },

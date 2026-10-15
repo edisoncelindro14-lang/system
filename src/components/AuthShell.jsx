@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import RiceFieldBackground from "./RiceFieldBackground";
 
-const LOGO_URL = "https://media.base44.com/images/public/6acdff0f22869b52739d919a/97535a1fd_Firefly1.png";
+const LOGO_URL = "https://media.base44.com/images/public/6ad0559cb2cdb34b8de882bb/05c8060f1_Firefly3.png";
 
 export const ORANGE_GRADIENT = "linear-gradient(90deg, #f7931e 0%, #f37021 55%, #e8501a 100%)";
 export const GOLD_GRADIENT =
