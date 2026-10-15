@@ -154,33 +154,12 @@ export default function Genealogy() {
       )
     : [], [search, approvedMembers]);
 
-  // Swap search: exclude source, its descendants, and non-direct ancestors
+  // Swap search: show all members except the source itself — no restrictions
   const swapSearchResults = useMemo(() => {
     if (!swapSource) return [];
-    const descIds = new Set();
-    const stack = [swapSource.id];
-    const visited = new Set([swapSource.id]);
-    while (stack.length) {
-      const id = stack.pop();
-      const children = approvedMembers.filter(m => (m.placement_id || m.referrer_id) === id && !visited.has(m.id));
-      for (const c of children) { descIds.add(c.id); visited.add(c.id); stack.push(c.id); }
-    }
-    const ancIds = new Set();
-    let cur = approvedMembers.find(m => m.id === swapSource.id);
-    const guard = new Set();
-    while (cur) {
-      const pid = cur.placement_id || cur.referrer_id;
-      if (!pid || guard.has(pid)) break;
-      ancIds.add(pid);
-      guard.add(pid);
-      cur = approvedMembers.find(m => m.id === pid);
-    }
-    const directParentId = swapSource.placement_id || swapSource.referrer_id;
     const q = swapSearch.toLowerCase().trim();
     return approvedMembers.filter(m =>
       m.id !== swapSource.id &&
-      !descIds.has(m.id) &&
-      !(ancIds.has(m.id) && m.id !== directParentId) &&
       (!q || (m.username || "").toLowerCase().includes(q) || (m.full_name || "").toLowerCase().includes(q))
     ).slice(0, 50);
   }, [swapSource, swapSearch, approvedMembers]);
@@ -376,20 +355,6 @@ export default function Genealogy() {
   }
 
   // Collect all ancestor ids of a member (follows placement_id || referrer_id up the tree)
-  function getAncestorIds(memberId, allMembers) {
-    const ids = new Set();
-    let current = allMembers.find(m => m.id === memberId);
-    const guard = new Set();
-    while (current) {
-      const pid = current.placement_id || current.referrer_id;
-      if (!pid || guard.has(pid)) break;
-      ids.add(pid);
-      guard.add(pid);
-      current = allMembers.find(m => m.id === pid);
-    }
-    return ids;
-  }
-
   // Recursively update tree_level for all descendants of a member
   async function updateSubtreeLevels(memberId, parentLevel, allMembers) {
     const visited = new Set([memberId]);
@@ -439,12 +404,7 @@ export default function Genealogy() {
       const bIsParentOfA = bParentId && a.placement_id === b.id;
       const isParentChild = aIsParentOfB || bIsParentOfA;
 
-      // Prevent swapping a non-direct ancestor with a descendant (creates a cycle)
-      const ancestorsOfA = getAncestorIds(a.id, allMembers);
-      const ancestorsOfB = getAncestorIds(b.id, allMembers);
-      if (ancestorsOfA.has(b.id) && !bIsParentOfA) { toast.error(`${b.username} is an upline of ${a.username} — cannot swap ancestor with descendant`); return; }
-      if (ancestorsOfB.has(a.id) && !aIsParentOfB) { toast.error(`${a.username} is an upline of ${b.username} — cannot swap ancestor with descendant`); return; }
-
+      // No relationship restrictions — upline, downline, and crossline swaps all allowed
       if (isParentChild) {
         // Parent-child swap: the child (now parent) needs a free slot
         const child = aIsParentOfB ? b : a;
@@ -516,16 +476,7 @@ export default function Genealogy() {
       if (!src || !tgt) { toast.error("Member not found"); return; }
       if (src.id === tgt.id) { toast.error("Cannot move a member to themselves"); return; }
 
-      // Check if target is a descendant of source (would create a cycle)
-      const descIds = new Set();
-      const stack = [src.id];
-      const visited = new Set([src.id]);
-      while (stack.length) {
-        const id = stack.pop();
-        const children = allMembers.filter(m => (m.placement_id || m.referrer_id) === id && !visited.has(m.id));
-        for (const c of children) { descIds.add(c.id); visited.add(c.id); stack.push(c.id); }
-      }
-      if (descIds.has(tgt.id)) { toast.error(`${tgt.username} is a downline of ${src.username} — cannot move into own subtree`); return; }
+      // No relationship restrictions — upline, downline, and crossline moves all allowed
 
       // Check target has available slots
       const targetChildren = allMembers.filter(m => (m.placement_id || m.referrer_id) === tgt.id);
