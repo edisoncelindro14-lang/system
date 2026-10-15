@@ -10,6 +10,7 @@ import {
 import toast from "react-hot-toast";
 import { useTable, updateRecord, createRecord, deleteRecord } from "../lib/useData";
 import { supabase } from "../lib/supabase";
+import { placementParent } from "../lib/genealogyPositions";
 import { getSessionMemberId } from "../lib/auth";
 import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
@@ -62,7 +63,7 @@ export default function Admin() {
   const [overrideModal, setOverrideModal] = useState(null);
   const [balanceModal, setBalanceModal] = useState(null);
 
-  const { data: members = [] } = useTable("members");
+  const { data: members = [], refetch: refetchMembers } = useTable("members");
   const { data: codes = [], refetch: refetchCodes } = useTable("maintenance_codes");
   const { data: withdrawals = [] } = useTable("conversion_requests");
   const { data: gcashInfo = [] } = useTable("gcash_info");
@@ -188,7 +189,7 @@ export default function Admin() {
 
   // Compute actual direct downline count from member relationships (same logic as Genealogy)
   function getDirectDownlineCount(memberId) {
-    return approvedMembers.filter(m => (m.placement_id || m.referrer_id) === memberId).length;
+    return approvedMembers.filter(m => placementParent(m) === memberId).length;
   }
 
   async function generateCodes() {
@@ -310,11 +311,20 @@ export default function Admin() {
 
   async function restoreMember(id) {
     try {
-      let { error } = await updateRecord("members", id, { status: "pending", deleted_date: null });
-      if (error) ({ error } = await supabase.from("members").update({ status: "pending" }).eq("id", id));
+      const updates = {
+        status: "approved",
+        maintenance_override: "red",
+        maintenance_timer_seconds: null,
+        maintenance_timer_set_at: null,
+      };
+      let { error } = await updateRecord("members", id, { ...updates, deleted_date: null });
+      // Older databases do not have deletion timestamps; keep the same restore state.
+      if (error?.message?.includes("deleted_date")) {
+        ({ error } = await updateRecord("members", id, updates));
+      }
       if (error) throw error;
-      toast.success("Account restored as inactive — re-approve to activate");
-      window.location.reload();
+      await refetchMembers();
+      toast.success("Account restored — no approval needed. Maintenance is inactive.");
     } catch (err) { toast.error(err?.message || "Failed to restore"); }
   }
 
@@ -1203,7 +1213,7 @@ export default function Admin() {
         <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="p-4 border-b border-gray-100 bg-red-50">
             <h2 className="font-semibold text-red-900 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Deleted Accounts</h2>
-            <p className="text-sm text-red-600 mt-1">These accounts have been deleted. Restored accounts return as inactive (pending) and must be re-approved to activate.</p>
+            <p className="text-sm text-red-600 mt-1">Restore accounts immediately — no approval needed. Their placement is kept and maintenance stays inactive.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">

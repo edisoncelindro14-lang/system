@@ -7,6 +7,7 @@ import { Button } from "./ui";
 import { maintenanceStatus, formatTime } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
 import { supabase } from "../lib/supabase";
+import { placementParent, planPositionSwap } from "../lib/genealogyPositions";
 import toast from "react-hot-toast";
 
 export default function Genealogy() {
@@ -48,6 +49,10 @@ export default function Genealogy() {
     selectedRef.current = selected;
   }, [currentMember, selected]);
 
+  useEffect(() => {
+    setSelected(previous => previous ? members.find(member => member.id === previous.id) || previous : previous);
+  }, [members]);
+
   // Navigate to a member: push current selection onto history stack, reset pan to top.
   // Uses a ref for the current selection so the callback identity never changes —
   // this keeps TreeNode stable and prevents the entire tree from remounting on every click.
@@ -82,7 +87,7 @@ export default function Genealogy() {
     const stack = [currentMember.id];
     while (stack.length) {
       const id = stack.pop();
-      allApproved.filter(m => (m.placement_id || m.referrer_id) === id).forEach(m => {
+      allApproved.filter(m => placementParent(m) === id).forEach(m => {
         if (!ids.has(m.id)) { ids.add(m.id); stack.push(m.id); }
       });
     }
@@ -170,7 +175,7 @@ export default function Genealogy() {
     // Cycle guard — prevents infinite recursion if data is inconsistent
     if (ancestors.includes(member.id)) return null;
     const nextAncestors = [...ancestors, member.id];
-    const downlines = approvedMembers.filter(m => (m.placement_id || m.referrer_id) === member.id);
+    const downlines = approvedMembers.filter(m => placementParent(m) === member.id);
     const isRoot = level === 0;
     const status = maintenanceStatus(member, codes);
     const isActive = status.isGreen;
@@ -252,7 +257,7 @@ export default function Genealogy() {
               <UserPlus className="w-3 h-3" /> Place Here
             </button>
           )}
-          {level > 0 && isSuperAdmin && (
+          {isSuperAdmin && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -354,14 +359,13 @@ export default function Genealogy() {
     setPlacing(false);
   }
 
-  // Collect all ancestor ids of a member (follows placement_id || referrer_id up the tree)
   // Recursively update tree_level for all descendants of a member
   async function updateSubtreeLevels(memberId, parentLevel, allMembers) {
     const visited = new Set([memberId]);
     const stack = [{ id: memberId, level: parentLevel }];
     while (stack.length) {
       const { id, level } = stack.pop();
-      const children = allMembers.filter(m => (m.placement_id || m.referrer_id) === id && !visited.has(m.id));
+      const children = allMembers.filter(m => placementParent(m) === id && !visited.has(m.id));
       for (const child of children) {
         visited.add(child.id);
         await updateRecord("members", child.id, { tree_level: level + 1 });
@@ -375,7 +379,7 @@ export default function Genealogy() {
     const affected = new Set();
     for (const id of memberIds) {
       if (!id) continue;
-      const actualCount = allMembers.filter(m => (m.placement_id || m.referrer_id) === id).length;
+      const actualCount = allMembers.filter(m => placementParent(m) === id).length;
       const member = allMembers.find(m => m.id === id);
       if (member && (member.direct_downlines_count || 0) !== actualCount) {
         await updateRecord("members", id, { direct_downlines_count: actualCount });
@@ -389,74 +393,37 @@ export default function Genealogy() {
     if (!swapSource || !swapTarget) return;
     setPlacing(true);
     try {
-      const { data: freshMembers } = await supabase.from("members").select("*");
-      const allMembers = freshMembers || members;
-      const a = allMembers.find(m => m.id === swapSource.id);
-      const b = allMembers.find(m => m.id === swapTarget.id);
-      if (!a || !b) { toast.error("Member not found"); return; }
-      if (a.id === b.id) { toast.error("Cannot swap a member with themselves"); return; }
-
-      const aParentId = a.placement_id || a.referrer_id;
-      const bParentId = b.placement_id || b.referrer_id;
-
-      // Check if this is a direct parent-child swap
-      const aIsParentOfB = aParentId && b.placement_id === a.id;
-      const bIsParentOfA = bParentId && a.placement_id === b.id;
-      const isParentChild = aIsParentOfB || bIsParentOfA;
-
-      // No relationship restrictions — upline, downline, and crossline swaps all allowed
-      if (isParentChild) {
-        // Parent-child swap — no slot restrictions
-        const child = aIsParentOfB ? b : a;
-        const parent = aIsParentOfB ? a : b;
-        const grandparentId = parent.placement_id || parent.referrer_id;
-        // Child takes parent's position
-        const childUpdates = {
-          placement_id: grandparentId || null,
-          tree_level: parent.tree_level || 0,
-        };
-        if (!grandparentId) childUpdates.referrer_id = null;
-        await updateRecord("members", child.id, childUpdates);
-        child.placement_id = grandparentId || null;
-        // Parent takes child's position
-        await updateRecord("members", parent.id, {
-          placement_id: child.id,
-          tree_level: child.tree_level || 0,
-        });
-        parent.placement_id = child.id;
-        // Recount downlines from actual data — no manual +1/-1
-        await recountDownlines([child.id, parent.id, grandparentId].filter(Boolean), allMembers);
-        // Update subtree levels for both swapped members
-        await updateSubtreeLevels(child.id, parent.tree_level || 0, allMembers);
-        await updateSubtreeLevels(parent.id, child.tree_level || 0, allMembers);
-        toast.success(`Positions swapped: ${child.username} ↔ ${parent.username}`);
-      } else {
-        // Crossline swap: exchange placement_id and tree_level
-        await updateRecord("members", a.id, {
-          placement_id: bParentId || null,
-          tree_level: b.tree_level || 0,
-        });
-        a.placement_id = bParentId || null;
-        await updateRecord("members", b.id, {
-          placement_id: aParentId || null,
-          tree_level: a.tree_level || 0,
-        });
-        b.placement_id = aParentId || null;
-        // Recount downlines from actual data for all affected members
-        await recountDownlines([a.id, b.id, aParentId, bParentId].filter(Boolean), allMembers);
-        // Update subtree levels for both swapped members
-        await updateSubtreeLevels(a.id, b.tree_level || 0, allMembers);
-        await updateSubtreeLevels(b.id, a.tree_level || 0, allMembers);
-        toast.success(`Positions swapped: ${a.username} ↔ ${b.username}`);
+      const { data: allMembers, error } = await supabase.from("members").select("*");
+      if (error) throw error;
+      const changes = planPositionSwap(allMembers, swapSource.id, swapTarget.id);
+      const applied = [];
+      try {
+        for (const change of changes) {
+          const { error: writeError } = await updateRecord("members", change.id, change.updates);
+          if (writeError) throw writeError;
+          applied.push(change);
+        }
+      } catch (writeError) {
+        // Restore successful writes if a later request fails; never report a partial swap as success.
+        let rollbackFailed = false;
+        for (const change of applied.reverse()) {
+          const original = allMembers.find(member => member.id === change.id);
+          const previous = Object.fromEntries(Object.keys(change.updates).map(key => [key, original[key] ?? null]));
+          const { error: rollbackError } = await updateRecord("members", change.id, previous);
+          if (rollbackError) rollbackFailed = true;
+        }
+        if (rollbackFailed) throw new Error("Swap interrupted. Some positions could not be restored; refresh and check the tree.");
+        throw writeError;
       }
-
+      toast.success(`Positions swapped: ${swapSource.username} ↔ ${swapTarget.username}`);
       setSwapSource(null);
       setSwapTarget(null);
       await refetchMembers();
     } catch (err) {
       toast.error(err?.message || "Failed to swap positions");
+    } finally {
+      setPlacing(false);
     }
-    setPlacing(false);
   }
 
   // Move a member (and their entire subtree) to a new sponsor via drag-and-drop
@@ -475,7 +442,7 @@ export default function Genealogy() {
       // No relationship restrictions — upline, downline, and crossline moves all allowed
 
       // Check target has available slots
-      const targetChildren = allMembers.filter(m => (m.placement_id || m.referrer_id) === tgt.id);
+      const targetChildren = allMembers.filter(m => placementParent(m) === tgt.id);
       if (targetChildren.length >= 8) { toast.error(`${tgt.username}'s downline is full (8/8)`); return; }
 
       // No-op if already under this sponsor
@@ -778,7 +745,7 @@ export default function Genealogy() {
             </div>
             <div className="max-h-72 overflow-y-auto space-y-1">
               {swapSearchResults.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-4">No members found. Search excludes downlines and uplines (except direct parent).</p>
+                <p className="text-sm text-gray-400 text-center py-4">No matching members found. All uplines, downlines, and crosslines are available.</p>
               ) : (
                 swapSearchResults.map(m => (
                   <button
@@ -861,7 +828,7 @@ export default function Genealogy() {
               <button onClick={() => { setSwapTarget(null); setSwapSource(null); }} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <p className="text-sm text-gray-500 mb-4">
-              This will swap the positions of these two members in the genealogy tree. Each member keeps their own downlines — no username is duplicated.
+              Each member will take the other's tree position and downline slots. Sponsors stay unchanged; no member or slot is duplicated.
             </p>
             <div className="flex gap-3">
               <Button onClick={handleSwapPosition} disabled={placing} className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white">Confirm Swap</Button>

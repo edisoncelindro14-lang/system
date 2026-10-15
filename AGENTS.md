@@ -24,6 +24,10 @@ The app's `src/lib/supabase.js` creates a Supabase client pointing at `VITE_SUPA
 
 **Tree interaction:** Canvas pointer capture must exclude interactive controls, otherwise it redirects the "Place Here" click to the canvas. Keep filtered tree arrays memoized so timer ticks do not remount tree nodes during a pointer gesture.
 
+**Position swaps:** `src/lib/genealogyPositions.js` plans a position exchange, reconnecting incoming and child links together. Merely exchanging parents makes ancestor/descendant swaps circular. All relationship directions and full nodes are allowed for authorized admins, including the currently selected top card. Sponsors (`referrer_id`) are preserved; an approved member with no `placement_id` and `tree_level = 0` is a placement root, not a referral fallback. The confirmation explains that downline slots stay at their positions. Run `docker compose -f docker-compose.base44.yml exec -T web node --test src/lib/genealogyPositions.test.js` for regression coverage.
+
+**Restoration:** Account approval and maintenance activation are separate. Restoring sets `status = approved` immediately, keeps placement, and sets the existing red maintenance override with cleared custom timers. It does not run placement approval or distribute commissions. Older databases may lack `deleted_date`; only that missing-column error should trigger the timestamp-free retry.
+
 **To switch back to the real Supabase:** run migration `005_genealogy_placement.sql` (or the SQL below followed by `notify pgrst, 'reload schema'`) on the Supabase dashboard SQL editor, then remove the two override lines from the `web` service `environment:` section:
 ```sql
 alter table public.members add column if not exists placement_id uuid references public.members(id) on delete set null;
