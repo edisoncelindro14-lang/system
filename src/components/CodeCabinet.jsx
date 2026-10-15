@@ -1,33 +1,23 @@
 import React, { useMemo, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Archive, Copy, KeyRound, ArrowRight, CheckCircle2, Clock, History } from "lucide-react";
 import toast from "react-hot-toast";
-import { useTable, useCurrentMember } from "../lib/useData";
+import { useTable } from "../lib/useData";
+import { useMaintenance } from "../lib/useMaintenance";
 import { supabase } from "../lib/supabase";
 import { redeemCode } from "../lib/redeem";
-import { formatDate, formatTime, maintenanceStatus } from "../lib/helpers";
+import { formatDate, formatTime } from "../lib/helpers";
 import { Button, Badge } from "./ui";
 import AutoRedeemPanel from "./AutoRedeemPanel";
 import WeeklyRedeemMonitor from "./WeeklyRedeemMonitor";
 
-const REDEEM_UNLOCK_THRESHOLD = 7200; // redeem enabled when 12h maintenance countdown has ≤2h left
+const REDEEM_UNLOCK_THRESHOLD = 7200; // redeem enabled when 720h maintenance countdown has ≤2h left
 
 export default function CodeCabinet() {
-  const nav = useNavigate();
-  const { data: members = [] } = useTable("members");
-  const { data: codes = [], refetch: refetchCodes } = useTable("maintenance_codes");
+  const { member: currentMember, members, codes, status: maintenance, refetchCodes } = useMaintenance();
   const { data: redemptionHistory = [], refetch: refetchHistory } = useTable("code_redemption_history");
   const { data: systemSettings = [] } = useTable("system_settings");
-  const { currentMember } = useCurrentMember(members);
   const [redeemBusyId, setRedeemBusyId] = useState(null);
-  const [now, setNow] = useState(Date.now());
-
-  // Tick every second for countdown timers
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   // Real-time: refetch when codes change
   useEffect(() => {
@@ -41,7 +31,7 @@ export default function CodeCabinet() {
         refetchCodes();
       })
       .subscribe();
-    const interval = setInterval(() => { refetchCodes(); refetchHistory(); }, 5000);
+    const interval = setInterval(() => refetchHistory(), 5000);
     return () => { supabase.removeChannel(channel); clearInterval(interval); };
   }, [refetchCodes, refetchHistory, currentMember]);
 
@@ -69,8 +59,7 @@ export default function CodeCabinet() {
     toast.success("Code copied! Paste it in the Maintenance Code box on your Dashboard.");
   }
 
-  const maintenance = currentMember ? maintenanceStatus(currentMember, codes) : null;
-  // Redeem is locked unless: never redeemed before, maintenance expired, or ≤1h left on the 12h countdown
+  // Redeem is locked unless: never redeemed before, maintenance expired, or ≤2h left on the 720h countdown
   const canRedeem = !maintenance || !maintenance.isGreen || maintenance.secondsLeft <= REDEEM_UNLOCK_THRESHOLD;
   const lockSeconds = maintenance && maintenance.isGreen ? maintenance.secondsLeft : 0;
 
@@ -99,7 +88,7 @@ export default function CodeCabinet() {
         </div>
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Code Cabinet</h1>
-          <p className="text-gray-500">Codes assigned to you by the store. Redemption unlocks when your 12-hour maintenance cycle has 2 hours remaining.</p>
+          <p className="text-gray-500">Codes assigned to you by the store. Redemption unlocks when your 720-hour maintenance cycle has 2 hours remaining.</p>
         </div>
       </motion.div>
 
@@ -131,8 +120,9 @@ export default function CodeCabinet() {
       )}
 
       <WeeklyRedeemMonitor
-        title="My Weekly Redeemed Codes"
+        title="My Monthly Redeemed Codes"
         showFilter={false}
+        maintenance={maintenance}
         rows={[{ username: currentMember.username, usedAts: codes.filter(c => c.is_used && c.used_by_member_id === currentMember.id && c.used_at).map(c => c.used_at) }]}
       />
 

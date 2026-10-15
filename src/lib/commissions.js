@@ -4,7 +4,7 @@ import { maintenanceStatus, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "./helpers";
 /**
  * Distribute upline commissions when a member is placed.
  * If the member already redeemed a maintenance code while in the lobby,
- * all uplines (referrer chain, up to 5 levels) receive their level bonus
+ * all uplines (referrer chain, up to 6 levels) receive their level bonus
  * at the moment of placement.
  *
  * @param {object} member       - The member being placed (must have referrer_id set)

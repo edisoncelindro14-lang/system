@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { updateRecord } from "../lib/useData";
 import { maintenanceStatus, formatTime } from "../lib/helpers";
 
-const MAINTENANCE_SECONDS = 43200; // 12 hours — must match helpers.js
+const MAINTENANCE_SECONDS = 2592000; // 720 hours — must match helpers.js
 
 export default function MaintenanceOverrideModal({ member, codes, onClose, onApplied }) {
   const [adjustMode, setAdjustMode] = useState("add"); // 'add' | 'deduct'

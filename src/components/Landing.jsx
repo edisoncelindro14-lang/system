@@ -7,7 +7,7 @@ import { Button } from "./ui";
 const STATS = [
   { label: "Active Members", value: "Growing" },
   { label: "Total Paid Out", value: "More" },
-  { label: "Zistem Levels", value: "5 Levels" },
+  { label: "Zistem Levels", value: "6 Levels" },
   { label: "Max Downlines", value: "8 Direct" },
 ];
 
@@ -63,8 +63,8 @@ export default function Landing() {
             </div>
           </div>
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold leading-tight mb-6">
-            Lowest System budget with
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">Web App System and Human IT Continues Assistance</span>
+            Pwede nang bumalik sa 'yo mga bayad mo sa
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">Pagpagawa ng System at System Subscription sa simpleng paraan lang!</span>
           </h1>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/Register" className="w-full sm:w-auto">
