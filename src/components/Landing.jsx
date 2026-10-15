@@ -13,7 +13,7 @@ const STATS = [
 
 const LOGO_URL = "https://media.base44.com/images/public/6acdff0f22869b52739d919a/97535a1fd_Firefly1.png";
 const POSTER_URL = "https://media.base44.com/images/public/6ac1daab80dea63a77ad8fa1/bc22b8f15_LOA-EdisonNoconCelindro3.png";
-const BG_URL = "https://media.base44.com/images/public/6ac1daab80dea63a77ad8fa1/af9b954eb_rice-field-farm-landscape-beautiful-sunny-day-in-rice-fields-with-blue-sky-and-mountains-free-photo.jpg";
+const BG_URL = "https://media.base44.com/images/public/6ace3abc7d65c772599ec043/115a0c601_716663-computer-wallpaper-desktop-background-2560x1440-image.jpg";
 
 export default function Landing() {
   return (
