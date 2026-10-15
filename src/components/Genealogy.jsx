@@ -20,6 +20,7 @@ export default function Genealogy() {
   const treeRef = useRef(null);
   const [history, setHistory] = useState([]);
   const [placementTarget, setPlacementTarget] = useState(null);
+  const [swapSource, setSwapSource] = useState(null);
   const [swapTarget, setSwapTarget] = useState(null);
   const [placing, setPlacing] = useState(false);
   const [, setTick] = useState(0);
@@ -176,10 +177,24 @@ export default function Genealogy() {
           )}
           {level > 0 && isSuperAdmin && (
             <button
-              onClick={(e) => { e.stopPropagation(); setSwapTarget(member); }}
-              className="relative mt-2 w-full bg-white/25 hover:bg-white/40 backdrop-blur-sm rounded-lg py-1.5 text-[10px] font-bold flex items-center justify-center gap-1 transition-all border border-white/30 hover:border-white/50"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (swapSource && swapSource.id !== member.id) {
+                  setSwapTarget(member);
+                } else {
+                  setSwapSource(swapSource?.id === member.id ? null : member);
+                  setSwapTarget(null);
+                }
+              }}
+              className={`relative mt-2 w-full backdrop-blur-sm rounded-lg py-1.5 text-[10px] font-bold flex items-center justify-center gap-1 transition-all border ${
+                swapSource?.id === member.id
+                  ? "bg-amber-500 text-white border-amber-300"
+                  : swapSource
+                    ? "bg-emerald-500 text-white border-emerald-300"
+                    : "bg-white/25 hover:bg-white/40 text-white border-white/30 hover:border-white/50"
+              }`}
             >
-              <ArrowUpDown className="w-3 h-3" /> Swap with Upline
+              <ArrowUpDown className="w-3 h-3" /> {swapSource?.id === member.id ? "Cancel Swap" : swapSource ? "Swap Here" : "Swap Position"}
             </button>
           )}
         </div>
@@ -225,7 +240,7 @@ export default function Genealogy() {
         )}
       </div>
     );
-  }, [approvedMembers, codes, selectMember, lobbyMembers, setPlacementTarget, setSwapTarget, maxDepth, isSuperAdmin]);
+  }, [approvedMembers, codes, selectMember, lobbyMembers, setPlacementTarget, setSwapTarget, setSwapSource, swapSource, maxDepth, isSuperAdmin]);
 
   async function handlePlaceMember(lobbyMember) {
     setPlacing(true);
@@ -267,46 +282,84 @@ export default function Genealogy() {
     setPlacing(false);
   }
 
+  // Collect all ancestor ids of a member (follows placement_id || referrer_id up the tree)
+  function getAncestorIds(memberId, allMembers) {
+    const ids = new Set();
+    let current = allMembers.find(m => m.id === memberId);
+    const guard = new Set();
+    while (current) {
+      const pid = current.placement_id || current.referrer_id;
+      if (!pid || guard.has(pid)) break;
+      ids.add(pid);
+      guard.add(pid);
+      current = allMembers.find(m => m.id === pid);
+    }
+    return ids;
+  }
+
   async function handleSwapPosition() {
-    if (!swapTarget) return;
+    if (!swapSource || !swapTarget) return;
     setPlacing(true);
     try {
       const { data: freshMembers } = await supabase.from("members").select("*");
       const allMembers = freshMembers || members;
-      const child = allMembers.find(m => m.id === swapTarget.id);
-      if (!child) { toast.error("Member not found"); return; }
+      const a = allMembers.find(m => m.id === swapSource.id);
+      const b = allMembers.find(m => m.id === swapTarget.id);
+      if (!a || !b) { toast.error("Member not found"); return; }
+      if (a.id === b.id) { toast.error("Cannot swap a member with themselves"); return; }
 
-      const parentId = child.placement_id || child.referrer_id;
-      if (!parentId) { toast.error("This member has no upline to swap with"); return; }
+      // Prevent swapping an ancestor with a descendant (creates a cycle)
+      const ancestorsOfA = getAncestorIds(a.id, allMembers);
+      const ancestorsOfB = getAncestorIds(b.id, allMembers);
+      if (ancestorsOfA.has(b.id)) { toast.error(`${b.username} is an upline of ${a.username} — cannot swap ancestor with descendant`); return; }
+      if (ancestorsOfB.has(a.id)) { toast.error(`${a.username} is an upline of ${b.username} — cannot swap ancestor with descendant`); return; }
 
-      const parent = allMembers.find(m => m.id === parentId);
-      if (!parent) { toast.error("Upline not found"); return; }
+      const aParentId = a.placement_id || a.referrer_id;
+      const bParentId = b.placement_id || b.referrer_id;
 
-      if ((child.direct_downlines_count || 0) >= 8) {
-        toast.error(`${child.username}'s downline is full (8/8) — cannot swap`);
-        return;
+      // Check if this is a direct parent-child swap
+      const aIsParentOfB = aParentId && b.placement_id === a.id;
+      const bIsParentOfA = bParentId && a.placement_id === b.id;
+      const isParentChild = aIsParentOfB || bIsParentOfA;
+
+      if (isParentChild) {
+        // Parent-child swap: the child (now parent) needs a free slot
+        const child = aIsParentOfB ? b : a;
+        const parent = aIsParentOfB ? a : b;
+        if ((child.direct_downlines_count || 0) >= 8) {
+          toast.error(`${child.username}'s downline is full (8/8) — cannot swap`);
+          return;
+        }
+        const grandparentId = parent.placement_id || parent.referrer_id;
+        // Child takes parent's position
+        const childUpdates = {
+          placement_id: grandparentId || null,
+          tree_level: parent.tree_level || 0,
+          direct_downlines_count: (child.direct_downlines_count || 0) + 1,
+        };
+        if (!grandparentId) childUpdates.referrer_id = null;
+        await updateRecord("members", child.id, childUpdates);
+        // Parent takes child's position
+        await updateRecord("members", parent.id, {
+          placement_id: child.id,
+          tree_level: child.tree_level || 0,
+          direct_downlines_count: Math.max(0, (parent.direct_downlines_count || 0) - 1),
+        });
+        toast.success(`Positions swapped: ${child.username} ↔ ${parent.username}`);
+      } else {
+        // Crossline swap: exchange placement_id and tree_level, counts unchanged
+        await updateRecord("members", a.id, {
+          placement_id: bParentId || null,
+          tree_level: b.tree_level || 0,
+        });
+        await updateRecord("members", b.id, {
+          placement_id: aParentId || null,
+          tree_level: a.tree_level || 0,
+        });
+        toast.success(`Positions swapped: ${a.username} ↔ ${b.username}`);
       }
 
-      const grandparentId = parent.placement_id || parent.referrer_id;
-
-      // Child takes parent's position in the tree
-      const childUpdates = {
-        placement_id: grandparentId || null,
-        tree_level: parent.tree_level || 0,
-        direct_downlines_count: (child.direct_downlines_count || 0) + 1,
-      };
-      // If parent was root (no grandparent), clear referrer_id too to avoid cycle
-      if (!grandparentId) childUpdates.referrer_id = null;
-      await updateRecord("members", child.id, childUpdates);
-
-      // Parent takes child's old position (now under child)
-      await updateRecord("members", parent.id, {
-        placement_id: child.id,
-        tree_level: child.tree_level || 0,
-        direct_downlines_count: Math.max(0, (parent.direct_downlines_count || 0) - 1),
-      });
-
-      toast.success(`Positions swapped: ${child.username} ↔ ${parent.username}`);
+      setSwapSource(null);
       setSwapTarget(null);
       await refetchMembers();
     } catch (err) {
@@ -559,24 +612,24 @@ export default function Genealogy() {
       )}
 
       {/* Swap Position Modal */}
-      {swapTarget && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setSwapTarget(null)}>
+      {swapTarget && swapSource && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setSwapTarget(null); setSwapSource(null); }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Swap Positions</h3>
                 <p className="text-sm text-amber-600 font-medium">
-                  @{swapTarget.username} ↔ @{members.find(m => m.id === (swapTarget.placement_id || swapTarget.referrer_id))?.username || "root"}
+                  @{swapSource.username} ↔ @{swapTarget.username}
                 </p>
               </div>
-              <button onClick={() => setSwapTarget(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+              <button onClick={() => { setSwapTarget(null); setSwapSource(null); }} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <p className="text-sm text-gray-500 mb-4">
-              This will swap the positions of this downline and their upline in the genealogy tree. The downline moves up and the upline moves down. Each member keeps their own downlines — no username is duplicated.
+              This will swap the positions of these two members in the genealogy tree. Each member keeps their own downlines — no username is duplicated.
             </p>
             <div className="flex gap-3">
               <Button onClick={handleSwapPosition} disabled={placing} className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white">Confirm Swap</Button>
-              <Button onClick={() => setSwapTarget(null)} variant="outline" className="flex-1">Cancel</Button>
+              <Button onClick={() => { setSwapTarget(null); setSwapSource(null); }} variant="outline" className="flex-1">Cancel</Button>
             </div>
           </div>
         </div>
