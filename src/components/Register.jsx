@@ -13,7 +13,7 @@ export default function Register() {
   const ref = params.get("ref") || "";
   const nav = useNavigate();
   const [form, setForm] = useState({ username: "", password: "", confirm_password: "" });
-  const [showPwd, setShowPwd] = useState(false);
+  const [showPwd, setShowPwd] = useState(true);
   const [busy, setBusy] = useState(false);
   const [referrerInfo, setReferrerInfo] = useState(null);
   const [usernameStatus, setUsernameStatus] = useState("idle"); // idle | checking | taken | available
