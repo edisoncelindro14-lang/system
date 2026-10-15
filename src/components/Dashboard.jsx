@@ -305,14 +305,14 @@ export default function Dashboard() {
         {/* Maintenance code redemption */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="bg-white/70 backdrop-blur-md rounded-3xl shadow-lg border border-white/60 overflow-hidden">
-          <div className="p-6 border-b border-white/40 bg-gradient-to-r from-emerald-700 to-green-600">
+          <div className="p-6 border-b border-white/40 bg-gradient-to-r from-black to-gray-800">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-white/20 rounded-xl">
                 <Ticket className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white">Maintenance Code</h2>
-                <p className="text-sm text-emerald-50">Paki-Paste po sa box sa ibaba ang iyong eksaktong Code at i-click ang "Redeem Code" button</p>
+                <p className="text-sm text-gray-200">Paki-Paste po sa box sa ibaba ang iyong eksaktong Code at i-click ang "Redeem Code" button</p>
               </div>
             </div>
           </div>
@@ -332,10 +332,10 @@ export default function Dashboard() {
                 value={code}
                 onChange={e => setCode(e.target.value)}
                 placeholder="MAINT-XXXXXX"
-                className="w-full h-12 rounded-xl border border-gray-200 px-4 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 uppercase"
+                className="w-full h-12 rounded-xl border border-gray-200 px-4 outline-none focus:border-black focus:ring-2 focus:ring-black/20 uppercase"
               />
               <Button type="submit" disabled={redeemBusy}
-                className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-bold h-12 rounded-xl">
+                className="w-full bg-gradient-to-r from-black to-gray-800 hover:from-gray-800 hover:to-black text-white font-bold h-12 rounded-xl">
                 <KeyRound className="w-4 h-4 mr-2" /> {redeemBusy ? "Redeeming..." : "Redeem Code"}
               </Button>
             </form>
