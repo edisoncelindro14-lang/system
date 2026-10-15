@@ -10,6 +10,7 @@ import {
 import toast from "react-hot-toast";
 import { useTable, updateRecord, createRecord, deleteRecord } from "../lib/useData";
 import { supabase } from "../lib/supabase";
+import { placementParent } from "../lib/genealogyPositions";
 import { getSessionMemberId } from "../lib/auth";
 import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
@@ -62,7 +63,7 @@ export default function Admin() {
   const [overrideModal, setOverrideModal] = useState(null);
   const [balanceModal, setBalanceModal] = useState(null);
 
-  const { data: members = [] } = useTable("members");
+  const { data: members = [], refetch: refetchMembers } = useTable("members");
   const { data: codes = [], refetch: refetchCodes } = useTable("maintenance_codes");
   const { data: withdrawals = [] } = useTable("conversion_requests");
   const { data: gcashInfo = [] } = useTable("gcash_info");
@@ -156,7 +157,7 @@ export default function Admin() {
     { id: "genealogy", label: "Genealogy", icon: GitBranch, active: "from-pink-500 to-rose-600", inactive: "bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100" },
     ...(tabVisibility.monitoring ? [{ id: "monitoring", label: "Monitoring", icon: Eye, active: "from-cyan-500 to-sky-600", inactive: "bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100" }] : []),
     { id: "gcash", label: "GCash", icon: Smartphone, active: "from-indigo-500 to-blue-600", inactive: "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100" },
-    ...(deletedMembers.length > 0 ? [{ id: "deleted", label: `Deleted (${deletedMembers.length})`, icon: Trash2, active: "from-red-500 to-rose-600", inactive: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100" }] : []),
+    { id: "deleted", label: `Deleted${deletedMembers.length > 0 ? ` (${deletedMembers.length})` : ""}`, icon: Trash2, active: "from-red-500 to-rose-600", inactive: "bg-red-50 text-red-700 border-red-200 hover:bg-red-100" },
     ...(canManageTabs ? [{ id: "roles", label: "Roles", icon: UserCog, active: "from-fuchsia-500 to-pink-600", inactive: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-100" }] : []),
     ...(tabVisibility.subadmin ? [{ id: "subadmins", label: "Sub-Admins", icon: Shield, active: "from-emerald-500 to-green-600", inactive: "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100" }] : []),
     { id: "store", label: "Store", icon: Store, active: "from-teal-500 to-cyan-600", inactive: "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100" },
@@ -188,7 +189,7 @@ export default function Admin() {
 
   // Compute actual direct downline count from member relationships (same logic as Genealogy)
   function getDirectDownlineCount(memberId) {
-    return approvedMembers.filter(m => (m.placement_id || m.referrer_id) === memberId).length;
+    return approvedMembers.filter(m => placementParent(m) === memberId).length;
   }
 
   async function generateCodes() {
@@ -310,11 +311,20 @@ export default function Admin() {
 
   async function restoreMember(id) {
     try {
-      let { error } = await updateRecord("members", id, { status: "approved", deleted_date: null });
-      if (error) ({ error } = await supabase.from("members").update({ status: "approved" }).eq("id", id));
+      const updates = {
+        status: "approved",
+        maintenance_override: "red",
+        maintenance_timer_seconds: null,
+        maintenance_timer_set_at: null,
+      };
+      let { error } = await updateRecord("members", id, { ...updates, deleted_date: null });
+      // Older databases do not have deletion timestamps; keep the same restore state.
+      if (error?.message?.includes("deleted_date")) {
+        ({ error } = await updateRecord("members", id, updates));
+      }
       if (error) throw error;
-      toast.success("Account restored");
-      window.location.reload();
+      await refetchMembers();
+      toast.success("Account restored — no approval needed. Maintenance is inactive.");
     } catch (err) { toast.error(err?.message || "Failed to restore"); }
   }
 
@@ -416,14 +426,44 @@ export default function Admin() {
     setSavingProfile(false);
   }
 
+  // Collect a member's entire referrer-based downline (for circular-reference prevention)
+  function getSponsorDownlineIds(memberId, allMembers) {
+    const ids = new Set([memberId]);
+    const stack = [memberId];
+    while (stack.length) {
+      const cur = stack.pop();
+      allMembers.filter(m => m.referrer_id === cur).forEach(m => {
+        if (!ids.has(m.id)) { ids.add(m.id); stack.push(m.id); }
+      });
+    }
+    return ids;
+  }
+
   async function changeSponsor(memberId, newSponsorId) {
     try {
-      const member = members.find(m => m.id === memberId);
-      const oldSponsor = members.find(m => m.id === member.referrer_id);
-      const newSponsor = newSponsorId ? members.find(m => m.id === newSponsorId) : null;
-      await updateRecord("members", memberId, { referrer_id: newSponsorId || null });
+      // Fetch fresh members so repeatable swaps always use current DB state
+      const { data: freshMembers } = await supabase.from("members").select("*");
+      const allMembers = freshMembers || members;
+      const member = allMembers.find(m => m.id === memberId);
+      if (!member) { toast.error("Member not found"); return; }
+
+      const oldSponsorId = member.referrer_id || null;
+      const newId = newSponsorId || null;
+
+      // No-op if the sponsor isn't actually changing
+      if (newId === oldSponsorId) {
+        toast.success("Sponsor unchanged");
+        setSponsorModal(null);
+        return;
+      }
+
+      const oldSponsor = oldSponsorId ? allMembers.find(m => m.id === oldSponsorId) : null;
+      const newSponsor = newId ? allMembers.find(m => m.id === newId) : null;
+
+      await updateRecord("members", memberId, { referrer_id: newId });
       if (oldSponsor) await updateRecord("members", oldSponsor.id, { direct_downlines_count: Math.max(0, (oldSponsor.direct_downlines_count || 0) - 1) });
       if (newSponsor) await updateRecord("members", newSponsor.id, { direct_downlines_count: (newSponsor.direct_downlines_count || 0) + 1 });
+
       toast.success("Sponsor updated");
       setSponsorModal(null);
       window.location.reload();
@@ -705,7 +745,7 @@ export default function Admin() {
                     {(isSupAdmin || isOwner) && <button onClick={() => setOverrideModal(m)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors" title="Maintenance Override"><Clock className="w-4 h-4" /></button>}
 
                     {(isSupAdmin || isOwner) && <button onClick={() => setBalanceModal(m)} className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors" title="Edit Balance"><Wallet className="w-4 h-4" /></button>}
-                    {isExpired && getDirectDownlineCount(m.id) === 0 && (
+                    {m.id !== currentMemberId && m.username !== "admin" && m.username !== "supadmin" && (
                       <button onClick={() => setConfirmDelete({ type: "member", id: m.id, name: m.full_name || m.username })} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors" title="Delete Account"><Trash2 className="w-4 h-4" /></button>
                     )}
                   </div>
@@ -1164,19 +1204,20 @@ export default function Admin() {
         <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="p-4 border-b border-gray-100 bg-red-50">
             <h2 className="font-semibold text-red-900 flex items-center gap-2"><Trash2 className="w-4 h-4" /> Deleted Accounts</h2>
-            <p className="text-sm text-red-600 mt-1">These accounts have been deleted. You can restore them at any time.</p>
+            <p className="text-sm text-red-600 mt-1">Restore accounts immediately — no approval needed. Their placement is kept and maintenance stays inactive.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-gray-100">
-                {["Name", "Username", "Deleted On", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
+                {["Name", "Username", "Role", "Deleted On", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
               </tr></thead>
               <tbody>
-                {deletedMembers.length === 0 ? <tr><td colSpan="4" className="text-center py-12 text-gray-400">No deleted accounts</td></tr> :
+                {deletedMembers.length === 0 ? <tr><td colSpan="5" className="text-center py-12 text-gray-400">No deleted accounts</td></tr> :
                 deletedMembers.map(m => (
                   <tr key={m.id} className="border-b border-gray-50 hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">{m.full_name}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">@{m.username}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{m.role || "member"}</td>
                     <td className="px-6 py-4 text-sm text-gray-400">{m.deleted_date ? formatDate(m.deleted_date, "MMM d, yyyy") : "—"}</td>
                     <td className="px-6 py-4">
                       <Button onClick={() => restoreMember(m.id)} size="sm" className="bg-teal-600 text-white h-8 px-3 text-xs"><RotateCcw className="w-3 h-3 mr-1" /> Restore</Button>
@@ -1670,7 +1711,7 @@ export default function Admin() {
                   <select value={sponsorModal.newSponsorId} onChange={e => setSponsorModal({ ...sponsorModal, newSponsorId: e.target.value })}
                     className="w-full h-12 rounded-xl border border-gray-200 px-4 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20">
                     <option value="">None (root — no sponsor)</option>
-                    {approvedMembers.filter(m => m.id !== sponsorModal.member?.id).map(m => (
+                    {approvedMembers.filter(m => m.id !== sponsorModal.member.id).map(m => (
                       <option key={m.id} value={m.id}>{m.full_name} (@{m.username}) — {m.direct_downlines_count || 0}/8 downlines</option>
                     ))}
                   </select>
@@ -1779,9 +1820,15 @@ export default function Admin() {
                   : "Are you sure you want to delete this code?"}
               </p>
               <p className="text-sm font-semibold text-gray-700 mb-6 break-all">{confirmDelete.name}</p>
-              {confirmDelete.type === "member" && (
-                <p className="text-xs text-gray-400 mb-4">They can be restored later from the Deleted tab.</p>
-              )}
+              {confirmDelete.type === "member" && (() => {
+                const downlines = getDirectDownlineCount(confirmDelete.id);
+                return (
+                  <p className="text-xs text-gray-400 mb-4">
+                    {downlines > 0 && <span className="text-amber-600 font-medium">⚠️ This member has {downlines} direct downline{downlines !== 1 ? "s" : ""}. They will be orphaned but remain in the tree. </span>}
+                    They can be restored later from the Deleted tab.
+                  </p>
+                );
+              })()}
               <div className="flex gap-3">
                 <Button onClick={() => setConfirmDelete(null)} variant="outline" className="flex-1">Cancel</Button>
                 <Button onClick={confirmDeleteAction} className="flex-1 bg-red-600 hover:bg-red-700 text-white">

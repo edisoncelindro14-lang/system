@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GitBranch, Search, ArrowRight, Users, ZoomIn, ZoomOut, User, Clock, Activity, UserPlus, X, Heart, ChevronLeft } from "lucide-react";
+import { GitBranch, Search, ArrowRight, Users, ZoomIn, ZoomOut, User, Clock, Activity, UserPlus, X, Heart, ChevronLeft, ArrowUpDown } from "lucide-react";
 import { useTable, useCurrentMember, updateRecord } from "../lib/useData";
 import { Button } from "./ui";
 import { maintenanceStatus, formatTime } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
 import { supabase } from "../lib/supabase";
+import { placementParent, placementChildren, planPositionSwap } from "../lib/genealogyPositions";
 import toast from "react-hot-toast";
 
 export default function Genealogy() {
@@ -20,8 +21,17 @@ export default function Genealogy() {
   const treeRef = useRef(null);
   const [history, setHistory] = useState([]);
   const [placementTarget, setPlacementTarget] = useState(null);
+  const [swapSource, setSwapSource] = useState(null);
+  const [swapTarget, setSwapTarget] = useState(null);
+  const [swapSearch, setSwapSearch] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [moveConfirm, setMoveConfirm] = useState(null);
+  const draggedMemberRef = useRef(null);
+  const [dragGhost, setDragGhost] = useState(null); // { member, x, y }
+  const dragData = useRef(null); // { startX, startY, member, started }
+  const justDraggedRef = useRef(false);
   const [, setTick] = useState(0);
+  const selectedRef = useRef(null);
   const { data: members = [], isLoading, refetch: refetchMembers } = useTable("members");
   const { data: codes = [] } = useTable("maintenance_codes");
   const { currentMember } = useCurrentMember(members);
@@ -29,23 +39,30 @@ export default function Genealogy() {
   // Live countdown — re-render every second so maintenance timers tick down.
   // Paused during drag to keep panning smooth on mobile.
   useEffect(() => {
-    if (isDragging) return;
+    if (isDragging || dragGhost) return;
     const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [isDragging]);
+  }, [isDragging, dragGhost]);
 
   useEffect(() => {
     if (currentMember && !selected) setSelected(currentMember);
-  }, [currentMember]);
+    selectedRef.current = selected;
+  }, [currentMember, selected]);
+
+  useEffect(() => {
+    setSelected(previous => previous ? members.find(member => member.id === previous.id) || previous : previous);
+  }, [members]);
 
   // Navigate to a member: push current selection onto history stack, reset pan to top.
+  // Uses a ref for the current selection so the callback identity never changes —
+  // this keeps TreeNode stable and prevents the entire tree from remounting on every click.
   const selectMember = useCallback((member) => {
-    if (selected && selected.id !== member.id) {
-      setHistory(h => [...h, selected]);
+    if (selectedRef.current && selectedRef.current.id !== member.id) {
+      setHistory(h => [...h, selectedRef.current]);
     }
     setSelected(member);
     setPan({ x: 0, y: 0 });
-  }, [selected]);
+  }, []);
 
   // Go back to the previous member in history.
   const goBack = useCallback(() => {
@@ -70,7 +87,7 @@ export default function Genealogy() {
     const stack = [currentMember.id];
     while (stack.length) {
       const id = stack.pop();
-      allApproved.filter(m => (m.placement_id || m.referrer_id) === id).forEach(m => {
+      allApproved.filter(m => placementParent(m) === id).forEach(m => {
         if (!ids.has(m.id)) { ids.add(m.id); stack.push(m.id); }
       });
     }
@@ -81,19 +98,84 @@ export default function Genealogy() {
     ? allApproved.filter(m => visibleIds.has(m.id))
     : allApproved, [allApproved, visibleIds]);
 
-  const searchResults = search
+  // Global pointer handlers for smooth member drag-and-drop
+  useEffect(() => {
+    const handleDragMove = (e) => {
+      if (!dragData.current) return;
+      const { startX, startY, member } = dragData.current;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!dragData.current.started && Math.hypot(dx, dy) > 5) {
+        dragData.current.started = true;
+        setDragGhost({ member, x: e.clientX, y: e.clientY });
+      }
+      if (dragData.current.started) {
+        setDragGhost(g => g ? { ...g, x: e.clientX, y: e.clientY } : g);
+        // Highlight drop target
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const node = el?.closest('[data-node]');
+        if (node && node.getAttribute('data-member-id') !== member.id) {
+          node.classList.add('drag-over');
+        }
+      }
+    };
+
+    const handleDragUp = (e) => {
+      if (!dragData.current) return;
+      if (dragData.current.started) {
+        justDraggedRef.current = true;
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const node = el?.closest('[data-node]');
+        if (node) {
+          const targetId = node.getAttribute('data-member-id');
+          if (targetId && targetId !== dragData.current.member.id) {
+            const targetMember = approvedMembers.find(m => m.id === targetId);
+            if (targetMember) {
+              setMoveConfirm({ source: dragData.current.member, target: targetMember });
+            }
+          }
+        }
+        setDragGhost(null);
+      }
+      dragData.current = null;
+    };
+
+    window.addEventListener('pointermove', handleDragMove);
+    window.addEventListener('pointerup', handleDragUp);
+    return () => {
+      window.removeEventListener('pointermove', handleDragMove);
+      window.removeEventListener('pointerup', handleDragUp);
+    };
+  }, [approvedMembers]);
+
+  const searchResults = useMemo(() => search
     ? approvedMembers.filter(m =>
         m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
         m.username?.toLowerCase().includes(search.toLowerCase()) ||
         m.email?.toLowerCase().includes(search.toLowerCase()) ||
         m.referral_code?.toLowerCase().includes(search.toLowerCase())
       )
-    : [];
+    : [], [search, approvedMembers]);
+
+  // Swap search: show all members except the source itself — no restrictions
+  const swapSearchResults = useMemo(() => {
+    if (!swapSource) return [];
+    const q = swapSearch.toLowerCase().trim();
+    return approvedMembers.filter(m =>
+      m.id !== swapSource.id &&
+      (!q || (m.username || "").toLowerCase().includes(q) || (m.full_name || "").toLowerCase().includes(q))
+    ).slice(0, 50);
+  }, [swapSource, swapSearch, approvedMembers]);
 
   const maxDepth = isSuperAdmin ? Infinity : 5;
 
-  const TreeNode = useCallback(function TreeNode({ member, level = 0 }) {
-    const downlines = approvedMembers.filter(m => (m.placement_id || m.referrer_id) === member.id);
+  const TreeNode = useCallback(function TreeNode({ member, level = 0, ancestors = [] }) {
+    // Cycle guard — prevents infinite recursion if data is inconsistent
+    if (ancestors.includes(member.id)) return null;
+    const nextAncestors = [...ancestors, member.id];
+    const downlines = placementChildren(approvedMembers, member.id);
     const isRoot = level === 0;
     const status = maintenanceStatus(member, codes);
     const isActive = status.isGreen;
@@ -105,9 +187,18 @@ export default function Genealogy() {
         {/* Node card */}
         <div
           data-node
-          onClick={() => selectMember(member)}
-          className={`group cursor-pointer relative w-48 rounded-2xl px-3.5 py-3.5 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-2 ${
-            isActive
+          data-member-id={member.id}
+          onPointerDown={(e) => {
+            if (!isSuperAdmin || level === 0 || e.button !== 0) return;
+            dragData.current = { startX: e.clientX, startY: e.clientY, member, started: false };
+          }}
+          onClick={() => {
+            if (justDraggedRef.current) { justDraggedRef.current = false; return; }
+            selectMember(member);
+          }}
+          className={`group relative w-48 rounded-2xl px-3.5 py-3.5 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-2 ${
+            isSuperAdmin && level > 0 ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+          } ${isActive
               ? "bg-gradient-to-br from-blue-400 to-blue-600 border-blue-300/50 text-white"
               : "bg-gradient-to-br from-gray-700 to-black border-gray-700/50 text-white"
           } ${isRoot ? "ring-4 ring-amber-400 ring-offset-2 ring-offset-gray-50" : ""}`}
@@ -166,6 +257,23 @@ export default function Genealogy() {
               <UserPlus className="w-3 h-3" /> Place Here
             </button>
           )}
+          {isSuperAdmin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSwapSource(swapSource?.id === member.id ? null : member);
+                setSwapTarget(null);
+                setSwapSearch("");
+              }}
+              className={`relative mt-2 w-full backdrop-blur-sm rounded-lg py-1.5 text-[10px] font-bold flex items-center justify-center gap-1 transition-all border ${
+                swapSource?.id === member.id
+                  ? "bg-amber-500 text-white border-amber-300"
+                  : "bg-white/25 hover:bg-white/40 text-white border-white/30 hover:border-white/50"
+              }`}
+            >
+              <ArrowUpDown className="w-3 h-3" /> {swapSource?.id === member.id ? "Cancel Swap" : "Swap Position"}
+            </button>
+          )}
         </div>
 
         {/* Children with T-junction connectors */}
@@ -193,7 +301,7 @@ export default function Genealogy() {
                     )}
                     {/* Vertical drop from horizontal bar to child card */}
                     <div className="w-1 h-6 rounded-full bg-gradient-to-b from-blue-500 to-emerald-400" />
-                    <TreeNode member={d} level={level + 1} />
+                    <TreeNode member={d} level={level + 1} ancestors={nextAncestors} />
                   </div>
                 );
               })}
@@ -209,7 +317,7 @@ export default function Genealogy() {
         )}
       </div>
     );
-  }, [approvedMembers, codes, selectMember, lobbyMembers, setPlacementTarget, maxDepth]);
+  }, [approvedMembers, codes, selectMember, lobbyMembers, setPlacementTarget, setSwapSource, swapSource, maxDepth, isSuperAdmin]);
 
   async function handlePlaceMember(lobbyMember) {
     setPlacing(true);
@@ -247,6 +355,121 @@ export default function Genealogy() {
       await refetchMembers();
     } catch (err) {
       toast.error(err.message || "Failed to place member");
+    }
+    setPlacing(false);
+  }
+
+  // Recursively update tree_level for all descendants of a member
+  async function updateSubtreeLevels(memberId, parentLevel, allMembers) {
+    const visited = new Set([memberId]);
+    const stack = [{ id: memberId, level: parentLevel }];
+    while (stack.length) {
+      const { id, level } = stack.pop();
+      const children = allMembers.filter(m => placementParent(m) === id && !visited.has(m.id));
+      for (const child of children) {
+        visited.add(child.id);
+        await updateRecord("members", child.id, { tree_level: level + 1 });
+        stack.push({ id: child.id, level: level + 1 });
+      }
+    }
+  }
+
+  // Recount direct_downlines_count from actual children for given member IDs
+  async function recountDownlines(memberIds, allMembers) {
+    const affected = new Set();
+    for (const id of memberIds) {
+      if (!id) continue;
+      const actualCount = allMembers.filter(m => placementParent(m) === id).length;
+      const member = allMembers.find(m => m.id === id);
+      if (member && (member.direct_downlines_count || 0) !== actualCount) {
+        await updateRecord("members", id, { direct_downlines_count: actualCount });
+        member.direct_downlines_count = actualCount;
+      }
+    }
+    return affected;
+  }
+
+  async function handleSwapPosition() {
+    if (!swapSource || !swapTarget) return;
+    setPlacing(true);
+    try {
+      const { data: allMembers, error } = await supabase.from("members").select("*");
+      if (error) throw error;
+      const changes = planPositionSwap(allMembers, swapSource.id, swapTarget.id);
+      const applied = [];
+      try {
+        for (const change of changes) {
+          const { error: writeError } = await updateRecord("members", change.id, change.updates);
+          if (writeError) throw writeError;
+          applied.push(change);
+        }
+      } catch (writeError) {
+        // Restore successful writes if a later request fails; never report a partial swap as success.
+        let rollbackFailed = false;
+        for (const change of applied.reverse()) {
+          const original = allMembers.find(member => member.id === change.id);
+          const previous = Object.fromEntries(Object.keys(change.updates).map(key => [key, original[key] ?? null]));
+          const { error: rollbackError } = await updateRecord("members", change.id, previous);
+          if (rollbackError) rollbackFailed = true;
+        }
+        if (rollbackFailed) throw new Error("Swap interrupted. Some positions could not be restored; refresh and check the tree.");
+        throw writeError;
+      }
+      await refetchMembers();
+      // Keep the viewed position in place when its occupant was one of the pair.
+      setSelected(previous => {
+        const occupantId = previous?.id === swapSource.id ? swapTarget.id
+          : previous?.id === swapTarget.id ? swapSource.id : null;
+        if (!occupantId) return previous;
+        const occupant = allMembers.find(member => member.id === occupantId);
+        return { ...occupant, ...changes.find(change => change.id === occupantId)?.updates };
+      });
+      toast.success(`Positions swapped: ${swapSource.username} ↔ ${swapTarget.username}`);
+      setSwapSource(null);
+      setSwapTarget(null);
+    } catch (err) {
+      toast.error(err?.message?.includes("placement_order")
+        ? "Position slots are not configured in this database. Apply migration 011_genealogy_position_order.sql in Supabase, then try again."
+        : err?.message || "Failed to swap positions");
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  // Move a member (and their entire subtree) to a new sponsor via drag-and-drop
+  async function handleMoveToSponsor() {
+    if (!moveConfirm) return;
+    setPlacing(true);
+    try {
+      const { source, target } = moveConfirm;
+      const { data: freshMembers } = await supabase.from("members").select("*");
+      const allMembers = freshMembers || members;
+      const src = allMembers.find(m => m.id === source.id);
+      const tgt = allMembers.find(m => m.id === target.id);
+      if (!src || !tgt) { toast.error("Member not found"); return; }
+      if (src.id === tgt.id) { toast.error("Cannot move a member to themselves"); return; }
+
+      // No relationship restrictions — upline, downline, and crossline moves all allowed
+      const oldParentId = src.placement_id || src.referrer_id;
+
+      // Move source to target
+      await updateRecord("members", src.id, {
+        placement_id: tgt.id,
+        tree_level: (tgt.tree_level || 0) + 1,
+      });
+      src.placement_id = tgt.id;
+
+      // Recount downlines for old parent and new target
+      await recountDownlines([oldParentId, tgt.id].filter(Boolean), allMembers);
+
+      // Update subtree levels for the moved member
+      await updateSubtreeLevels(src.id, (tgt.tree_level || 0), allMembers);
+
+      toast.success(`${src.username} moved to ${tgt.username}'s downline`);
+      setMoveConfirm(null);
+      await refetchMembers();
+    } catch (err) {
+      toast.error(err?.message || "Failed to move member");
     }
     setPlacing(false);
   }
@@ -324,6 +547,8 @@ export default function Genealogy() {
         .scroll-thick::-webkit-scrollbar-thumb { background: #6366f1 !important; border-radius: 20px; border: 4px solid #e5e7eb; }
         .scroll-thick::-webkit-scrollbar-thumb:hover { background: #4f46e5 !important; }
         .scroll-thick { scrollbar-width: thick !important; scrollbar-color: #6366f1 #e5e7eb !important; }
+        .drag-over { box-shadow: 0 0 0 4px #34d399, 0 0 20px rgba(52, 211, 153, 0.5) !important; transform: scale(1.05); }
+        [data-member-id] { touch-action: none; }
       `}</style>
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -348,6 +573,10 @@ export default function Genealogy() {
           <span className="text-sm font-semibold text-gray-800">Inactive — No maintenance</span>
         </div>
       </div>
+
+      {isSuperAdmin && (
+        <p className="text-xs text-gray-400 mb-4">💡 Tip: Drag any member card onto another to move them (and their downline) to a new sponsor.</p>
+      )}
 
       {/* Lobby — unplaced members who used the current user's referral link */}
       {lobbyMembers.length > 0 && (
@@ -489,6 +718,124 @@ export default function Genealogy() {
                   <UserPlus className="w-4 h-4 text-amber-500" />
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Swap Search Modal — pick a member to swap with */}
+      {swapSource && !swapTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setSwapSource(null); setSwapSearch(""); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Swap Position</h3>
+                <p className="text-sm text-amber-600 font-medium">
+                  Source: @{swapSource.username}
+                </p>
+              </div>
+              <button onClick={() => { setSwapSource(null); setSwapSearch(""); }} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                autoFocus
+                value={swapSearch}
+                onChange={e => setSwapSearch(e.target.value)}
+                placeholder="Search username to swap with..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+            </div>
+            <div className="max-h-72 overflow-y-auto space-y-1">
+              {swapSearchResults.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">No matching members found. All uplines, downlines, and crosslines are available.</p>
+              ) : (
+                swapSearchResults.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setSwapTarget(m); }}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-amber-50 border border-transparent hover:border-amber-200 transition-all text-left"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                      {(m.username || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">@{m.username}</p>
+                      <p className="text-xs text-gray-500 truncate">{m.full_name || "—"} · Level {m.tree_level || 0}</p>
+                    </div>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Swap</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move to Sponsor Confirmation Modal */}
+      {moveConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setMoveConfirm(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Move to New Sponsor</h3>
+                <p className="text-sm text-emerald-600 font-medium">
+                  @{moveConfirm.source.username} → @{moveConfirm.target.username}
+                </p>
+              </div>
+              <button onClick={() => setMoveConfirm(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              This will move <strong>@{moveConfirm.source.username}</strong> and their entire downline under <strong>@{moveConfirm.target.username}</strong>. Tree levels will be recalculated automatically — no slots duplicated.
+            </p>
+            <div className="flex gap-3">
+              <Button onClick={handleMoveToSponsor} disabled={placing} className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white">Confirm Move</Button>
+              <Button onClick={() => setMoveConfirm(null)} variant="outline" className="flex-1">Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drag ghost — follows cursor at current zoom scale */}
+      {dragGhost && (
+        <div
+          className="fixed pointer-events-none z-[100]"
+          style={{
+            left: dragGhost.x,
+            top: dragGhost.y,
+            transform: `translate(-50%, -50%) scale(${zoom / 100})`,
+          }}
+        >
+          <div className={`w-48 rounded-2xl px-3.5 py-3.5 border-2 shadow-2xl opacity-90 ${
+            maintenanceStatus(dragGhost.member, codes).isGreen
+              ? "bg-gradient-to-br from-blue-400 to-blue-600 border-blue-300/50 text-white"
+              : "bg-gradient-to-br from-gray-700 to-black border-gray-700/50 text-white"
+          }`}>
+            <div className="text-center text-sm font-bold truncate">{dragGhost.member.username || dragGhost.member.full_name}</div>
+            <div className="text-center text-[10px] mt-1 opacity-75">Moving to new sponsor…</div>
+          </div>
+        </div>
+      )}
+
+      {/* Swap Position Confirmation Modal */}
+      {swapTarget && swapSource && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setSwapTarget(null); setSwapSource(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Swap Positions</h3>
+                <p className="text-sm text-amber-600 font-medium">
+                  @{swapSource.username} ↔ @{swapTarget.username}
+                </p>
+              </div>
+              <button onClick={() => { setSwapTarget(null); setSwapSource(null); }} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              Each member will take the other's tree position and downline slots. Sponsors stay unchanged; no member or slot is duplicated.
+            </p>
+            <div className="flex gap-3">
+              <Button onClick={handleSwapPosition} disabled={placing} className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white">Confirm Swap</Button>
+              <Button onClick={() => { setSwapTarget(null); setSwapSource(null); }} variant="outline" className="flex-1">Cancel</Button>
             </div>
           </div>
         </div>
