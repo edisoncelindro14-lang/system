@@ -24,6 +24,8 @@ export default function Genealogy() {
   const [swapTarget, setSwapTarget] = useState(null);
   const [swapSearch, setSwapSearch] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [moveConfirm, setMoveConfirm] = useState(null);
+  const draggedMemberRef = useRef(null);
   const [, setTick] = useState(0);
   const selectedRef = useRef(null);
   const { data: members = [], isLoading, refetch: refetchMembers } = useTable("members");
@@ -146,9 +148,34 @@ export default function Genealogy() {
         {/* Node card */}
         <div
           data-node
+          draggable={isSuperAdmin && level > 0}
           onClick={() => selectMember(member)}
+          onDragStart={(e) => {
+            draggedMemberRef.current = member;
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", member.id);
+          }}
+          onDragOver={(e) => {
+            if (!draggedMemberRef.current || draggedMemberRef.current.id === member.id) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+          }}
+          onDragEnter={(e) => {
+            if (!draggedMemberRef.current || draggedMemberRef.current.id === member.id) return;
+            e.currentTarget.classList.add("drag-over");
+          }}
+          onDragLeave={(e) => { e.currentTarget.classList.remove("drag-over"); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.currentTarget.classList.remove("drag-over");
+            if (draggedMemberRef.current && draggedMemberRef.current.id !== member.id) {
+              setMoveConfirm({ source: draggedMemberRef.current, target: member });
+            }
+            draggedMemberRef.current = null;
+          }}
           className={`group cursor-pointer relative w-48 rounded-2xl px-3.5 py-3.5 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-2 ${
-            isActive
+            isSuperAdmin && level > 0 ? "cursor-grab" : ""
+          } ${isActive
               ? "bg-gradient-to-br from-blue-400 to-blue-600 border-blue-300/50 text-white"
               : "bg-gradient-to-br from-gray-700 to-black border-gray-700/50 text-white"
           } ${isRoot ? "ring-4 ring-amber-400 ring-offset-2 ring-offset-gray-50" : ""}`}
@@ -437,6 +464,60 @@ export default function Genealogy() {
     setPlacing(false);
   }
 
+  // Move a member (and their entire subtree) to a new sponsor via drag-and-drop
+  async function handleMoveToSponsor() {
+    if (!moveConfirm) return;
+    setPlacing(true);
+    try {
+      const { source, target } = moveConfirm;
+      const { data: freshMembers } = await supabase.from("members").select("*");
+      const allMembers = freshMembers || members;
+      const src = allMembers.find(m => m.id === source.id);
+      const tgt = allMembers.find(m => m.id === target.id);
+      if (!src || !tgt) { toast.error("Member not found"); return; }
+      if (src.id === tgt.id) { toast.error("Cannot move a member to themselves"); return; }
+
+      // Check if target is a descendant of source (would create a cycle)
+      const descIds = new Set();
+      const stack = [src.id];
+      const visited = new Set([src.id]);
+      while (stack.length) {
+        const id = stack.pop();
+        const children = allMembers.filter(m => (m.placement_id || m.referrer_id) === id && !visited.has(m.id));
+        for (const c of children) { descIds.add(c.id); visited.add(c.id); stack.push(c.id); }
+      }
+      if (descIds.has(tgt.id)) { toast.error(`${tgt.username} is a downline of ${src.username} — cannot move into own subtree`); return; }
+
+      // Check target has available slots
+      const targetChildren = allMembers.filter(m => (m.placement_id || m.referrer_id) === tgt.id);
+      if (targetChildren.length >= 8) { toast.error(`${tgt.username}'s downline is full (8/8)`); return; }
+
+      // No-op if already under this sponsor
+      const oldParentId = src.placement_id || src.referrer_id;
+      if (oldParentId === tgt.id) { toast.error(`${src.username} is already under ${tgt.username}`); return; }
+
+      // Move source to target
+      await updateRecord("members", src.id, {
+        placement_id: tgt.id,
+        tree_level: (tgt.tree_level || 0) + 1,
+      });
+      src.placement_id = tgt.id;
+
+      // Recount downlines for old parent and new target
+      await recountDownlines([oldParentId, tgt.id].filter(Boolean), allMembers);
+
+      // Update subtree levels for the moved member
+      await updateSubtreeLevels(src.id, (tgt.tree_level || 0), allMembers);
+
+      toast.success(`${src.username} moved to ${tgt.username}'s downline`);
+      setMoveConfirm(null);
+      await refetchMembers();
+    } catch (err) {
+      toast.error(err?.message || "Failed to move member");
+    }
+    setPlacing(false);
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -510,6 +591,7 @@ export default function Genealogy() {
         .scroll-thick::-webkit-scrollbar-thumb { background: #6366f1 !important; border-radius: 20px; border: 4px solid #e5e7eb; }
         .scroll-thick::-webkit-scrollbar-thumb:hover { background: #4f46e5 !important; }
         .scroll-thick { scrollbar-width: thick !important; scrollbar-color: #6366f1 #e5e7eb !important; }
+        .drag-over { box-shadow: 0 0 0 4px #34d399, 0 0 20px rgba(52, 211, 153, 0.5) !important; transform: scale(1.05); }
       `}</style>
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -534,6 +616,10 @@ export default function Genealogy() {
           <span className="text-sm font-semibold text-gray-800">Inactive — No maintenance</span>
         </div>
       </div>
+
+      {isSuperAdmin && (
+        <p className="text-xs text-gray-400 mb-4">💡 Tip: Drag any member card onto another to move them (and their downline) to a new sponsor.</p>
+      )}
 
       {/* Lobby — unplaced members who used the current user's referral link */}
       {lobbyMembers.length > 0 && (
@@ -724,6 +810,30 @@ export default function Genealogy() {
                   </button>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move to Sponsor Confirmation Modal */}
+      {moveConfirm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setMoveConfirm(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Move to New Sponsor</h3>
+                <p className="text-sm text-emerald-600 font-medium">
+                  @{moveConfirm.source.username} → @{moveConfirm.target.username}
+                </p>
+              </div>
+              <button onClick={() => setMoveConfirm(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              This will move <strong>@{moveConfirm.source.username}</strong> and their entire downline under <strong>@{moveConfirm.target.username}</strong>. Tree levels will be recalculated automatically — no slots duplicated.
+            </p>
+            <div className="flex gap-3">
+              <Button onClick={handleMoveToSponsor} disabled={placing} className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white">Confirm Move</Button>
+              <Button onClick={() => setMoveConfirm(null)} variant="outline" className="flex-1">Cancel</Button>
             </div>
           </div>
         </div>
