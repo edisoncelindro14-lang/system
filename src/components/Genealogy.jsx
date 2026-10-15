@@ -26,6 +26,9 @@ export default function Genealogy() {
   const [placing, setPlacing] = useState(false);
   const [moveConfirm, setMoveConfirm] = useState(null);
   const draggedMemberRef = useRef(null);
+  const [dragGhost, setDragGhost] = useState(null); // { member, x, y }
+  const dragData = useRef(null); // { startX, startY, member, started }
+  const justDraggedRef = useRef(false);
   const [, setTick] = useState(0);
   const selectedRef = useRef(null);
   const { data: members = [], isLoading, refetch: refetchMembers } = useTable("members");
@@ -35,10 +38,10 @@ export default function Genealogy() {
   // Live countdown — re-render every second so maintenance timers tick down.
   // Paused during drag to keep panning smooth on mobile.
   useEffect(() => {
-    if (isDragging) return;
+    if (isDragging || dragGhost) return;
     const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [isDragging]);
+  }, [isDragging, dragGhost]);
 
   useEffect(() => {
     if (currentMember && !selected) setSelected(currentMember);
@@ -89,6 +92,58 @@ export default function Genealogy() {
   const approvedMembers = useMemo(() => visibleIds
     ? allApproved.filter(m => visibleIds.has(m.id))
     : allApproved, [allApproved, visibleIds]);
+
+  // Global pointer handlers for smooth member drag-and-drop
+  useEffect(() => {
+    const handleDragMove = (e) => {
+      if (!dragData.current) return;
+      const { startX, startY, member } = dragData.current;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!dragData.current.started && Math.hypot(dx, dy) > 5) {
+        dragData.current.started = true;
+        setDragGhost({ member, x: e.clientX, y: e.clientY });
+      }
+      if (dragData.current.started) {
+        setDragGhost(g => g ? { ...g, x: e.clientX, y: e.clientY } : g);
+        // Highlight drop target
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const node = el?.closest('[data-node]');
+        if (node && node.getAttribute('data-member-id') !== member.id) {
+          node.classList.add('drag-over');
+        }
+      }
+    };
+
+    const handleDragUp = (e) => {
+      if (!dragData.current) return;
+      if (dragData.current.started) {
+        justDraggedRef.current = true;
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        const node = el?.closest('[data-node]');
+        if (node) {
+          const targetId = node.getAttribute('data-member-id');
+          if (targetId && targetId !== dragData.current.member.id) {
+            const targetMember = approvedMembers.find(m => m.id === targetId);
+            if (targetMember) {
+              setMoveConfirm({ source: dragData.current.member, target: targetMember });
+            }
+          }
+        }
+        setDragGhost(null);
+      }
+      dragData.current = null;
+    };
+
+    window.addEventListener('pointermove', handleDragMove);
+    window.addEventListener('pointerup', handleDragUp);
+    return () => {
+      window.removeEventListener('pointermove', handleDragMove);
+      window.removeEventListener('pointerup', handleDragUp);
+    };
+  }, [approvedMembers]);
 
   const searchResults = useMemo(() => search
     ? approvedMembers.filter(m =>
@@ -148,33 +203,17 @@ export default function Genealogy() {
         {/* Node card */}
         <div
           data-node
-          draggable={isSuperAdmin && level > 0}
-          onClick={() => selectMember(member)}
-          onDragStart={(e) => {
-            draggedMemberRef.current = member;
-            e.dataTransfer.effectAllowed = "move";
-            e.dataTransfer.setData("text/plain", member.id);
+          data-member-id={member.id}
+          onPointerDown={(e) => {
+            if (!isSuperAdmin || level === 0 || e.button !== 0) return;
+            dragData.current = { startX: e.clientX, startY: e.clientY, member, started: false };
           }}
-          onDragOver={(e) => {
-            if (!draggedMemberRef.current || draggedMemberRef.current.id === member.id) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
+          onClick={() => {
+            if (justDraggedRef.current) { justDraggedRef.current = false; return; }
+            selectMember(member);
           }}
-          onDragEnter={(e) => {
-            if (!draggedMemberRef.current || draggedMemberRef.current.id === member.id) return;
-            e.currentTarget.classList.add("drag-over");
-          }}
-          onDragLeave={(e) => { e.currentTarget.classList.remove("drag-over"); }}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.currentTarget.classList.remove("drag-over");
-            if (draggedMemberRef.current && draggedMemberRef.current.id !== member.id) {
-              setMoveConfirm({ source: draggedMemberRef.current, target: member });
-            }
-            draggedMemberRef.current = null;
-          }}
-          className={`group cursor-pointer relative w-48 rounded-2xl px-3.5 py-3.5 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-2 ${
-            isSuperAdmin && level > 0 ? "cursor-grab" : ""
+          className={`group relative w-48 rounded-2xl px-3.5 py-3.5 transition-all duration-300 hover:scale-105 hover:shadow-2xl border-2 ${
+            isSuperAdmin && level > 0 ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
           } ${isActive
               ? "bg-gradient-to-br from-blue-400 to-blue-600 border-blue-300/50 text-white"
               : "bg-gradient-to-br from-gray-700 to-black border-gray-700/50 text-white"
@@ -592,6 +631,7 @@ export default function Genealogy() {
         .scroll-thick::-webkit-scrollbar-thumb:hover { background: #4f46e5 !important; }
         .scroll-thick { scrollbar-width: thick !important; scrollbar-color: #6366f1 #e5e7eb !important; }
         .drag-over { box-shadow: 0 0 0 4px #34d399, 0 0 20px rgba(52, 211, 153, 0.5) !important; transform: scale(1.05); }
+        [data-member-id] { touch-action: none; }
       `}</style>
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -835,6 +875,27 @@ export default function Genealogy() {
               <Button onClick={handleMoveToSponsor} disabled={placing} className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white">Confirm Move</Button>
               <Button onClick={() => setMoveConfirm(null)} variant="outline" className="flex-1">Cancel</Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drag ghost — follows cursor at current zoom scale */}
+      {dragGhost && (
+        <div
+          className="fixed pointer-events-none z-[100]"
+          style={{
+            left: dragGhost.x,
+            top: dragGhost.y,
+            transform: `translate(-50%, -50%) scale(${zoom / 100})`,
+          }}
+        >
+          <div className={`w-48 rounded-2xl px-3.5 py-3.5 border-2 shadow-2xl opacity-90 ${
+            maintenanceStatus(dragGhost.member, codes).isGreen
+              ? "bg-gradient-to-br from-blue-400 to-blue-600 border-blue-300/50 text-white"
+              : "bg-gradient-to-br from-gray-700 to-black border-gray-700/50 text-white"
+          }`}>
+            <div className="text-center text-sm font-bold truncate">{dragGhost.member.username || dragGhost.member.full_name}</div>
+            <div className="text-center text-[10px] mt-1 opacity-75">Moving to new sponsor…</div>
           </div>
         </div>
       )}
