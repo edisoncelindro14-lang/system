@@ -22,6 +22,7 @@ export default function Genealogy() {
   const [placementTarget, setPlacementTarget] = useState(null);
   const [swapSource, setSwapSource] = useState(null);
   const [swapTarget, setSwapTarget] = useState(null);
+  const [swapSearch, setSwapSearch] = useState("");
   const [placing, setPlacing] = useState(false);
   const [, setTick] = useState(0);
   const selectedRef = useRef(null);
@@ -95,6 +96,37 @@ export default function Genealogy() {
         m.referral_code?.toLowerCase().includes(search.toLowerCase())
       )
     : [], [search, approvedMembers]);
+
+  // Swap search: exclude source, its descendants, and non-direct ancestors
+  const swapSearchResults = useMemo(() => {
+    if (!swapSource) return [];
+    const descIds = new Set();
+    const stack = [swapSource.id];
+    const visited = new Set([swapSource.id]);
+    while (stack.length) {
+      const id = stack.pop();
+      const children = approvedMembers.filter(m => (m.placement_id || m.referrer_id) === id && !visited.has(m.id));
+      for (const c of children) { descIds.add(c.id); visited.add(c.id); stack.push(c.id); }
+    }
+    const ancIds = new Set();
+    let cur = approvedMembers.find(m => m.id === swapSource.id);
+    const guard = new Set();
+    while (cur) {
+      const pid = cur.placement_id || cur.referrer_id;
+      if (!pid || guard.has(pid)) break;
+      ancIds.add(pid);
+      guard.add(pid);
+      cur = approvedMembers.find(m => m.id === pid);
+    }
+    const directParentId = swapSource.placement_id || swapSource.referrer_id;
+    const q = swapSearch.toLowerCase().trim();
+    return approvedMembers.filter(m =>
+      m.id !== swapSource.id &&
+      !descIds.has(m.id) &&
+      !(ancIds.has(m.id) && m.id !== directParentId) &&
+      (!q || (m.username || "").toLowerCase().includes(q) || (m.full_name || "").toLowerCase().includes(q))
+    ).slice(0, 50);
+  }, [swapSource, swapSearch, approvedMembers]);
 
   const maxDepth = isSuperAdmin ? Infinity : 5;
 
@@ -179,22 +211,17 @@ export default function Genealogy() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (swapSource && swapSource.id !== member.id) {
-                  setSwapTarget(member);
-                } else {
-                  setSwapSource(swapSource?.id === member.id ? null : member);
-                  setSwapTarget(null);
-                }
+                setSwapSource(swapSource?.id === member.id ? null : member);
+                setSwapTarget(null);
+                setSwapSearch("");
               }}
               className={`relative mt-2 w-full backdrop-blur-sm rounded-lg py-1.5 text-[10px] font-bold flex items-center justify-center gap-1 transition-all border ${
                 swapSource?.id === member.id
                   ? "bg-amber-500 text-white border-amber-300"
-                  : swapSource
-                    ? "bg-emerald-500 text-white border-emerald-300"
-                    : "bg-white/25 hover:bg-white/40 text-white border-white/30 hover:border-white/50"
+                  : "bg-white/25 hover:bg-white/40 text-white border-white/30 hover:border-white/50"
               }`}
             >
-              <ArrowUpDown className="w-3 h-3" /> {swapSource?.id === member.id ? "Cancel Swap" : swapSource ? "Swap Here" : "Swap Position"}
+              <ArrowUpDown className="w-3 h-3" /> {swapSource?.id === member.id ? "Cancel Swap" : "Swap Position"}
             </button>
           )}
         </div>
@@ -240,7 +267,7 @@ export default function Genealogy() {
         )}
       </div>
     );
-  }, [approvedMembers, codes, selectMember, lobbyMembers, setPlacementTarget, setSwapTarget, setSwapSource, swapSource, maxDepth, isSuperAdmin]);
+  }, [approvedMembers, codes, selectMember, lobbyMembers, setPlacementTarget, setSwapSource, swapSource, maxDepth, isSuperAdmin]);
 
   async function handlePlaceMember(lobbyMember) {
     setPlacing(true);
@@ -323,12 +350,6 @@ export default function Genealogy() {
       if (!a || !b) { toast.error("Member not found"); return; }
       if (a.id === b.id) { toast.error("Cannot swap a member with themselves"); return; }
 
-      // Prevent swapping an ancestor with a descendant (creates a cycle)
-      const ancestorsOfA = getAncestorIds(a.id, allMembers);
-      const ancestorsOfB = getAncestorIds(b.id, allMembers);
-      if (ancestorsOfA.has(b.id)) { toast.error(`${b.username} is an upline of ${a.username} — cannot swap ancestor with descendant`); return; }
-      if (ancestorsOfB.has(a.id)) { toast.error(`${a.username} is an upline of ${b.username} — cannot swap ancestor with descendant`); return; }
-
       const aParentId = a.placement_id || a.referrer_id;
       const bParentId = b.placement_id || b.referrer_id;
 
@@ -336,6 +357,12 @@ export default function Genealogy() {
       const aIsParentOfB = aParentId && b.placement_id === a.id;
       const bIsParentOfA = bParentId && a.placement_id === b.id;
       const isParentChild = aIsParentOfB || bIsParentOfA;
+
+      // Prevent swapping a non-direct ancestor with a descendant (creates a cycle)
+      const ancestorsOfA = getAncestorIds(a.id, allMembers);
+      const ancestorsOfB = getAncestorIds(b.id, allMembers);
+      if (ancestorsOfA.has(b.id) && !bIsParentOfA) { toast.error(`${b.username} is an upline of ${a.username} — cannot swap ancestor with descendant`); return; }
+      if (ancestorsOfB.has(a.id) && !aIsParentOfB) { toast.error(`${a.username} is an upline of ${b.username} — cannot swap ancestor with descendant`); return; }
 
       if (isParentChild) {
         // Parent-child swap: the child (now parent) needs a free slot
@@ -632,7 +659,56 @@ export default function Genealogy() {
         </div>
       )}
 
-      {/* Swap Position Modal */}
+      {/* Swap Search Modal — pick a member to swap with */}
+      {swapSource && !swapTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setSwapSource(null); setSwapSearch(""); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Swap Position</h3>
+                <p className="text-sm text-amber-600 font-medium">
+                  Source: @{swapSource.username}
+                </p>
+              </div>
+              <button onClick={() => { setSwapSource(null); setSwapSearch(""); }} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                autoFocus
+                value={swapSearch}
+                onChange={e => setSwapSearch(e.target.value)}
+                placeholder="Search username to swap with..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              />
+            </div>
+            <div className="max-h-72 overflow-y-auto space-y-1">
+              {swapSearchResults.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">No members found. Search excludes downlines and uplines (except direct parent).</p>
+              ) : (
+                swapSearchResults.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setSwapTarget(m); }}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-amber-50 border border-transparent hover:border-amber-200 transition-all text-left"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                      {(m.username || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">@{m.username}</p>
+                      <p className="text-xs text-gray-500 truncate">{m.full_name || "—"} · Level {m.tree_level || 0}</p>
+                    </div>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Swap</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Swap Position Confirmation Modal */}
       {swapTarget && swapSource && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setSwapTarget(null); setSwapSource(null); }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
