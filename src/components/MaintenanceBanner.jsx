@@ -1,26 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { CheckCircle, AlertCircle } from "lucide-react";
-import { useTable } from "../lib/useData";
-import { getSessionMemberId } from "../lib/auth";
-import { maintenanceStatus, formatTime, formatGraceTime } from "../lib/helpers";
+import { formatTime } from "../lib/helpers";
+import { useMaintenance } from "../lib/useMaintenance";
 
 export function MaintenanceBanner() {
-  const [, setTick] = useState(0);
-  const memberId = getSessionMemberId();
-  const { data: members = [] } = useTable("members", { enabled: !!memberId });
-  const { data: codes = [] } = useTable("maintenance_codes", { enabled: !!memberId });
+  const { status } = useMaintenance();
+  if (!status) return null;
 
-  useEffect(() => {
-    if (!memberId) return;
-    const interval = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(interval);
-  }, [memberId]);
-
-  const member = memberId ? members.find(m => m.id === memberId) : null;
-  if (!member) return null;
-
-  const status = maintenanceStatus(member, codes);
-  const { isGreen, secondsLeft, neverRedeemed } = status;
+  const { isGreen, secondsLeft } = status;
 
   return (
     <div className={`w-full py-3 sm:py-2.5 px-4 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 font-semibold text-white ${isGreen ? "bg-blue-500" : "bg-black"}`}>

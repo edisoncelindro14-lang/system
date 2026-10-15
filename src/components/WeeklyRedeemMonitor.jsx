@@ -12,7 +12,7 @@ const fmtMonth = d => d.toLocaleDateString("en-US", { month: "long", year: "nume
  * Monthly redeem monitor. `rows` = [{ username, usedAts: [timestamps of redeemed codes] }]
  * Each member needs at least MONTHLY_REDEEM_TARGET redeemed codes per calendar month.
  */
-export default function WeeklyRedeemMonitor({ rows, title = "Monthly Redeem Monitor", showFilter = true }) {
+export default function WeeklyRedeemMonitor({ rows, title = "Monthly Redeem Monitor", showFilter = true, maintenance = null }) {
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState("");
   const [now, setNow] = useState(Date.now());
@@ -23,11 +23,15 @@ export default function WeeklyRedeemMonitor({ rows, title = "Monthly Redeem Moni
   const start = monthStart(new Date(), offset);
   const end = monthEnd(start);
   const days = monthDayLabels(start);
-  // Active members get 720h, inactive members get 120h, both from month start
+  // Personal maintenance uses the same status as the top banner, not month-start.
   const ACTIVE_HOURS = 720;
   const INACTIVE_HOURS = 120;
-  const activeSecondsLeft = Math.max(0, Math.floor((start.getTime() + ACTIVE_HOURS * 3600000 - now) / 1000));
-  const inactiveSecondsLeft = Math.max(0, Math.floor((start.getTime() + INACTIVE_HOURS * 3600000 - now) / 1000));
+  const activeSecondsLeft = maintenance
+    ? (maintenance.isGreen ? maintenance.secondsLeft : 0)
+    : Math.max(0, Math.floor((start.getTime() + ACTIVE_HOURS * 3600000 - now) / 1000));
+  const inactiveSecondsLeft = maintenance
+    ? (maintenance.isGreen ? 0 : maintenance.secondsLeft)
+    : Math.max(0, Math.floor((start.getTime() + INACTIVE_HOURS * 3600000 - now) / 1000));
   const data = rows.filter(r => !filter || r.username === filter).map(r => {
     const counts = monthlyCounts(r.usedAts, start);
     return { username: r.username, days: counts, total: counts.reduce((a, b) => a + b, 0) };
@@ -84,9 +88,11 @@ export default function WeeklyRedeemMonitor({ rows, title = "Monthly Redeem Moni
                     </Badge>
                     {offset === 0 && (
                       <span className="text-xs text-gray-500">
-                        ⏱ {r.total >= MONTHLY_REDEEM_TARGET
-                          ? `${Math.floor(activeSecondsLeft / 3600)}h ${formatTime(activeSecondsLeft % 3600)}`
-                          : `${Math.floor(inactiveSecondsLeft / 3600)}h ${formatTime(inactiveSecondsLeft % 3600)}`}
+                        ⏱ {maintenance
+                          ? `${Math.floor(maintenance.secondsLeft / 3600)}h ${formatTime(maintenance.secondsLeft % 3600)}`
+                          : r.total >= MONTHLY_REDEEM_TARGET
+                            ? `${Math.floor(activeSecondsLeft / 3600)}h ${formatTime(activeSecondsLeft % 3600)}`
+                            : `${Math.floor(inactiveSecondsLeft / 3600)}h ${formatTime(inactiveSecondsLeft % 3600)}`}
                       </span>
                     )}
                   </div>

@@ -32,6 +32,10 @@ create index if not exists idx_members_placement on public.members(placement_id)
 
 **If the external Supabase becomes unreachable again:** add `VITE_SUPABASE_URL=https://8000-${BASE44_PUBLIC_HOST_SUFFIX}` and a valid PostgREST JWT as `VITE_SUPABASE_ANON_KEY` to the `web` service `environment:` section in `docker-compose.base44.yml` to fall back to the local PostgREST stack.
 
+## Shared maintenance countdown
+- `MaintenanceProvider` inside the layout supplies one maintenance status, one clock, and refreshed member/code data to the top banner and Code Cabinet. Keep the cabinet's monthly monitor on this shared status; calendar-month totals must not determine its maintenance timer or activation state.
+- Verify `/CodeCabinet` while signed in: the banner, applicable Active/Not Active summary, and row countdown must have identical remaining seconds, including across ticks and month navigation. The other summary is zero; monthly redemption totals remain separate.
+
 ## Verify
 - `curl -sf http://localhost:3000/` returns the landing page HTML
 - Login at `/MemberLogin` with member credentials from the local DB (e.g. `Ceferinoarizobal` / `M12345678`) → navigates to `/Dashboard`

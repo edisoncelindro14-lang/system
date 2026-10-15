@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: on-failure
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -45,6 +46,7 @@ services:
 
   api:
     image: postgrest/postgrest:v12.2.3
+    restart: on-failure
     depends_on:
       db:
         condition: service_healthy
@@ -63,14 +65,29 @@ services:
     volumes:
       - ./scripts/local-storage.cjs:/app/local-storage.cjs:ro
       - storage_data:/data
-    command: ["node", "local-storage.cjs"]
+    command: ["node", "--watch", "local-storage.cjs"]
     restart: on-failure
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/storage/v1/object/public/__healthcheck__/missing').then(async r => { if (r.status !== 404 || (await r.json()).message !== 'Not found') throw Error('Storage unresponsive'); }).catch(e => { console.error(e.message); process.exit(1); })"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
 
   proxy:
     image: nginx:alpine
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- 'http://127.0.0.1:8000/rest/v1/members?select=id&limit=0' >/dev/null || { echo 'API proxy unresponsive'; exit 1; }"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     depends_on:
-      - api
-      - storage
+      api:
+        condition: service_started
+      storage:
+        condition: service_healthy
     ports:
       - "8000:8000"
     volumes:
@@ -93,9 +110,17 @@ services:
     env_file:
       - ./.env.base44-defaults
       - /run/base44/app.env
-    command: sh -c "npm install && npm run dev"
+    command: ["sh", "-ec", "npm ci --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0"]
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/').then(r => { if (!r.ok) throw Error('Frontend unresponsive'); }).catch(e => { console.error(e.message); process.exit(1); })"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
     depends_on:
-      - proxy
+      proxy:
+        condition: service_healthy
 
 volumes:
   db_data:
