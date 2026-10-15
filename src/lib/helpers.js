@@ -72,15 +72,16 @@ export function formatDate(date, fmt = "MMM d, yyyy h:mm a") {
 }
 
 export const LEVEL_CONFIG = [
-  { level: 1, label: "Level 1 — Direct Downlines", bonus_amount: 1, max_members: 8, description: "Earn ₱1 every time a downline who used your referral link redeems a maintenance code.", color: "from-amber-500 to-orange-600", bgColor: "bg-amber-50", borderColor: "border-amber-200", textColor: "text-amber-700" },
-  { level: 2, label: "Level 2 — Downlines of Downlines", bonus_amount: 1, max_members: 64, description: "Earn ₱1 every time a Level 2 downline redeems a maintenance code.", color: "from-emerald-500 to-teal-600", bgColor: "bg-emerald-50", borderColor: "border-emerald-200", textColor: "text-emerald-700" },
-  { level: 3, label: "Level 3 — Third Generation", bonus_amount: 1, max_members: 512, description: "Earn ₱1 every time a Level 3 downline redeems a maintenance code.", color: "from-amber-600 to-amber-800", bgColor: "bg-amber-50", borderColor: "border-amber-200", textColor: "text-amber-700" },
-  { level: 4, label: "Level 4 — Fourth Generation", bonus_amount: 1, max_members: 4096, description: "Earn ₱1 every time a Level 4 downline redeems a maintenance code.", color: "from-amber-700 to-amber-900", bgColor: "bg-amber-50", borderColor: "border-amber-200", textColor: "text-amber-700" },
-  { level: 5, label: "Level 5 — Fifth Generation", bonus_amount: 1, max_members: 32768, description: "Earn ₱1 every time a Level 5 downline redeems a maintenance code.", color: "from-rose-500 to-red-600", bgColor: "bg-rose-50", borderColor: "border-rose-200", textColor: "text-rose-700" },
+  { level: 1, label: "Level 1 — Direct Downlines", bonus_amount: 300, max_members: 8, description: "Earn ₱300 every time a downline who used your referral link redeems a maintenance code.", color: "from-amber-500 to-orange-600", bgColor: "bg-amber-50", borderColor: "border-amber-200", textColor: "text-amber-700" },
+  { level: 2, label: "Level 2 — Downlines of Downlines", bonus_amount: 300, max_members: 64, description: "Earn ₱300 every time a Level 2 downline redeems a maintenance code.", color: "from-emerald-500 to-teal-600", bgColor: "bg-emerald-50", borderColor: "border-emerald-200", textColor: "text-emerald-700" },
+  { level: 3, label: "Level 3 — Third Generation", bonus_amount: 300, max_members: 512, description: "Earn ₱300 every time a Level 3 downline redeems a maintenance code.", color: "from-amber-600 to-amber-800", bgColor: "bg-amber-50", borderColor: "border-amber-200", textColor: "text-amber-700" },
+  { level: 4, label: "Level 4 — Fourth Generation", bonus_amount: 300, max_members: 4096, description: "Earn ₱300 every time a Level 4 downline redeems a maintenance code.", color: "from-amber-700 to-amber-900", bgColor: "bg-amber-50", borderColor: "border-amber-200", textColor: "text-amber-700" },
+  { level: 5, label: "Level 5 — Fifth Generation", bonus_amount: 300, max_members: 32768, description: "Earn ₱300 every time a Level 5 downline redeems a maintenance code.", color: "from-rose-500 to-red-600", bgColor: "bg-rose-50", borderColor: "border-rose-200", textColor: "text-rose-700" },
+  { level: 6, label: "Level 6 — Sixth Generation", bonus_amount: 300, max_members: 262144, description: "Earn ₱300 every time a Level 6 downline redeems a maintenance code.", color: "from-indigo-500 to-purple-600", bgColor: "bg-indigo-50", borderColor: "border-indigo-200", textColor: "text-indigo-700" },
 ];
 
-// All 5 levels pay out income when downlines redeem maintenance codes
-export const MAX_BONUS_LEVEL = 5;
+// All 6 levels pay out income when downlines redeem maintenance codes
+export const MAX_BONUS_LEVEL = 6;
 
 export const TRANSACTION_TYPES = {
   level_bonus: { label: "Level Bonus", color: "bg-emerald-100 text-emerald-700" },

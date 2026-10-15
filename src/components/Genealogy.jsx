@@ -332,7 +332,7 @@ export default function Genealogy() {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Zistem Tree</h1>
-            <p className="text-gray-500">{isSuperAdmin ? "Full network — up to 8 downlines per member" : "5-level network — up to 8 downlines per member"}</p>
+            <p className="text-gray-500">{isSuperAdmin ? "Full network — up to 8 downlines per member" : "6-level network — up to 8 downlines per member"}</p>
           </div>
         </div>
       </motion.div>

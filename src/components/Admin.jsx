@@ -1639,7 +1639,7 @@ export default function Admin() {
               </div>
               <div className="p-6 space-y-4">
                 <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
-                  <p className="text-sm text-teal-800">Enter a maintenance code to redeem on behalf of this member. The 5-level upline bonuses will be distributed automatically using the same rules as the member's own redemption.</p>
+                  <p className="text-sm text-teal-800">Enter a maintenance code to redeem on behalf of this member. The 6-level upline bonuses will be distributed automatically using the same rules as the member's own redemption.</p>
                 </div>
                 <div>
                   <Label>Maintenance Code</Label>
