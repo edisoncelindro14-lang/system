@@ -52,6 +52,10 @@ export default function Register() {
       toast.error("Passwords do not match");
       return;
     }
+    // Switch password fields to type="password" at submit so the browser can save credentials
+    document.querySelectorAll('input[type="text"]').forEach(el => {
+      if (el.name === 'new-password' || el.name === 'confirm_password') el.type = 'password';
+    });
     if (form.password.length < 6) {
       toast.error("Password must be at least 6 characters");
       return;
@@ -143,6 +147,8 @@ export default function Register() {
             label="Username"
             required
             icon={User}
+            name="username"
+            autoComplete="username"
             value={form.username}
             onChange={e => setForm({ ...form, username: e.target.value })}
             placeholder="Choose a username"
@@ -158,6 +164,8 @@ export default function Register() {
           label="Password"
           required
           icon={Lock}
+          name="new-password"
+          autoComplete="new-password"
           type={showPwd ? "text" : "password"}
           value={form.password}
           onChange={e => setForm({ ...form, password: e.target.value })}
@@ -173,6 +181,8 @@ export default function Register() {
           label="Confirm Password"
           required
           icon={Lock}
+          name="confirm_password"
+          autoComplete="new-password"
           type={showPwd ? "text" : "password"}
           value={form.confirm_password}
           onChange={e => setForm({ ...form, confirm_password: e.target.value })}

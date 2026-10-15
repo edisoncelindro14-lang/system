@@ -11,8 +11,8 @@ const STATS = [
   { label: "Max Downlines", value: "8 Direct" },
 ];
 
-const LOGO_URL = "https://media.base44.com/images/public/6acdff0f22869b52739d919a/97535a1fd_Firefly1.png";
-const POSTER_URL = "https://media.base44.com/images/public/6ac1daab80dea63a77ad8fa1/bc22b8f15_LOA-EdisonNoconCelindro3.png";
+const LOGO_URL = "https://media.base44.com/images/public/6ad0559cb2cdb34b8de882bb/05c8060f1_Firefly3.png";
+const POSTER_URL = "https://media.base44.com/images/public/6ad0559cb2cdb34b8de882bb/ea315c230_ZiSystemServicesPromotionalPoster.png";
 const BG_URL = "https://media.base44.com/images/public/6ace3abc7d65c772599ec043/115a0c601_716663-computer-wallpaper-desktop-background-2560x1440-image.jpg";
 
 export default function Landing() {
@@ -59,15 +59,12 @@ export default function Landing() {
             <img src={LOGO_URL} alt="Zistem Community" className="w-56 sm:w-72 mb-4 drop-shadow-2xl object-contain" />
             <img src={POSTER_URL} alt="Kumikita Ka Ba sa Bigas na Binibili Mo?" className="w-full max-w-sm mx-auto mb-4 rounded-2xl drop-shadow-2xl object-cover" />
             <div className="bg-amber-500/10 border border-amber-400/40 rounded-2xl px-6 py-4 max-w-3xl text-center">
-              <p className="text-amber-300 font-bold text-lg sm:text-2xl md:text-3xl leading-snug tracking-wide drop-shadow-lg">Pagod ka na ba gumastos sa bigas?</p>
-              <p className="text-amber-100 font-semibold italic text-base sm:text-xl md:text-2xl leading-relaxed mt-1">
-                Tara na! Mag-Zistem! Dito ikaw naman ang kikita bilang Customer sa simpleng paraan lang.
-              </p>
+              <p className="text-amber-300 font-bold text-lg sm:text-2xl md:text-3xl leading-snug tracking-wide drop-shadow-lg">Murang System para sa Business at Non-Business !</p>
             </div>
           </div>
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold leading-tight mb-6">
-            "No Membership Fee !"
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">Bibili ka lang ng bigas na dati na natin ginagawa at i-share sa iba ang Zistem</span>
+            Lowest System budget with
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">Web App System and Human IT Continues Assistance</span>
           </h1>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/Register" className="w-full sm:w-auto">
