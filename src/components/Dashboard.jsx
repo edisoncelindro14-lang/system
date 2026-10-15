@@ -201,16 +201,16 @@ export default function Dashboard() {
       {/* Balance card + Maintenance code */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Balance card */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 bg-gradient-to-br from-[#581c87] to-[#4c0519] rounded-3xl shadow-xl overflow-hidden flex flex-col">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-2 bg-gradient-to-br from-[#8B4513] to-[#5C2E0A] rounded-3xl shadow-xl overflow-hidden flex flex-col">
           <div className="p-8 bg-black/10">
             <div className="flex items-center gap-6 flex-wrap">
               <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
                 <Wallet className="w-8 h-8 text-white" />
               </div>
               <div className="flex-1">
-                <p className="text-purple-100 text-base font-medium">Current Balance</p>
+                <p className="text-amber-100 text-base font-medium">Current Balance</p>
                 <p className="text-5xl font-extrabold text-white mt-1">{money(availableBalance)}</p>
-                <p className="text-purple-100 text-xs mt-1">Minimum withdrawal: ₱{minAmount.toLocaleString()}</p>
+                <p className="text-amber-100 text-xs mt-1">Minimum withdrawal: ₱{minAmount.toLocaleString()}</p>
               </div>
             </div>
             {availableBalance >= minAmount && !pendingWithdrawal && (
@@ -238,10 +238,10 @@ export default function Dashboard() {
               </div>
             )}
             {productWalletBalance > 0 && (
-              <div className="mt-5 bg-purple-500/30 rounded-2xl px-4 py-3 flex items-center gap-3 text-sm text-white">
+              <div className="mt-5 bg-amber-800/40 rounded-2xl px-4 py-3 flex items-center gap-3 text-sm text-white">
                 <ShoppingBag className="w-5 h-5 shrink-0" />
                 <div>
-                  <p className="text-purple-100 text-xs">Product Wallet Balance</p>
+                  <p className="text-amber-100 text-xs">Product Wallet Balance</p>
                   <p className="font-bold text-lg">{money(productWalletBalance)}</p>
                 </div>
               </div>
@@ -254,19 +254,19 @@ export default function Dashboard() {
               ) : (
                 <>
                   <Button onClick={handleWithdraw} disabled={withdrawValue < minAmount || withdrawValue > availableBalance}
-                    className="bg-pink-600 text-white hover:bg-pink-700 font-bold text-base px-8 py-4 h-auto rounded-2xl shadow-lg disabled:opacity-100 disabled:text-white/40 disabled:bg-pink-600/50">
+                    className="bg-[#6B3410] text-white hover:bg-[#5C2A0D] font-bold text-base px-8 py-4 h-auto rounded-2xl shadow-lg disabled:opacity-100 disabled:text-white/40 disabled:bg-[#6B3410]/50">
                     <Wallet className="w-5 h-5 mr-2" /> Withdraw Now
                 </Button>
                   {productConversionVisible && (
                   <Button onClick={handleConvertToProduct} disabled={availableBalance < minAmount}
-                    className="bg-purple-500 text-white hover:bg-purple-600 font-bold text-base px-6 py-4 h-auto rounded-2xl shadow-lg disabled:opacity-100 disabled:text-white/40 disabled:bg-purple-500/50">
+                    className="bg-[#7A3E12] text-white hover:bg-[#6B3410] font-bold text-base px-6 py-4 h-auto rounded-2xl shadow-lg disabled:opacity-100 disabled:text-white/40 disabled:bg-[#7A3E12]/50">
                     <ShoppingBag className="w-5 h-5 mr-2" /> Convert to Product Wallet
                   </Button>
                   )}
                 </>
               )}
               <Button onClick={() => setShowHistory(!showHistory)} variant="ghost"
-                className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-400/50 rounded-2xl">
+                className="bg-[#5C2E0A] hover:bg-[#4A2408] text-white border border-amber-700/50 rounded-2xl">
                 {showHistory ? <ChevronUp className="w-4 h-4 mr-2" /> : <ChevronDown className="w-4 h-4 mr-2" />} Withdrawal History
               </Button>
             </div>
@@ -277,14 +277,14 @@ export default function Dashboard() {
                   <div className="p-6">
                     <h3 className="text-white font-bold mb-4">Withdrawal History</h3>
                     {withdrawals.length === 0 ? (
-                      <p className="text-purple-100 text-sm text-center py-4">No withdrawals yet</p>
+                      <p className="text-amber-100 text-sm text-center py-4">No withdrawals yet</p>
                     ) : (
                       <div className="space-y-3">
                         {withdrawals.map(w => (
                           <div key={w.id} className="bg-white/10 rounded-2xl px-4 py-3 flex items-center justify-between gap-4">
                             <div>
                               <p className="text-white text-sm font-semibold">Withdrawal</p>
-                              <p className="text-purple-100 text-xs">{formatDate(w.created_date || w.created_at)}</p>
+                              <p className="text-amber-100 text-xs">{formatDate(w.created_date || w.created_at)}</p>
                             </div>
                             <div className="text-right">
                               <p className="text-white font-bold">-{money(Math.abs(w.amount || 0))}</p>
