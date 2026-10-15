@@ -23,11 +23,11 @@ export default function WeeklyRedeemMonitor({ rows, title = "Monthly Redeem Moni
   const start = monthStart(new Date(), offset);
   const end = monthEnd(start);
   const days = monthDayLabels(start);
-  // Month closes last day 23:59:59 local time
-  const monthEndWithTime = new Date(end);
-  monthEndWithTime.setHours(23, 59, 59, 999);
-  const secondsLeft = Math.max(0, Math.floor((monthEndWithTime.getTime() - now) / 1000));
-  const daysLeft = Math.floor(secondsLeft / 86400);
+  // Active members get 720h, inactive members get 120h, both from month start
+  const ACTIVE_HOURS = 720;
+  const INACTIVE_HOURS = 120;
+  const activeSecondsLeft = Math.max(0, Math.floor((start.getTime() + ACTIVE_HOURS * 3600000 - now) / 1000));
+  const inactiveSecondsLeft = Math.max(0, Math.floor((start.getTime() + INACTIVE_HOURS * 3600000 - now) / 1000));
   const data = rows.filter(r => !filter || r.username === filter).map(r => {
     const counts = monthlyCounts(r.usedAts, start);
     return { username: r.username, days: counts, total: counts.reduce((a, b) => a + b, 0) };
@@ -50,10 +50,11 @@ export default function WeeklyRedeemMonitor({ rows, title = "Monthly Redeem Moni
       </div>
       <div className="px-6 py-3 border-b border-gray-100 grid sm:grid-cols-[1fr_auto] gap-3 items-center bg-gray-50/50">
         {showFilter ? <div className="max-w-sm"><SearchableDropdown value={filter} onChange={setFilter} options={rows.map(r => r.username).sort()} placeholder="Filter by username" /></div> : <div />}
-        <div className="text-sm font-semibold text-violet-700">
-          {offset === 0
-            ? `⏱ Month ends in ${daysLeft > 0 ? `${daysLeft}d ` : ""}${formatTime(secondsLeft % 86400)}`
-            : "Month closed"}
+        <div className="flex flex-col gap-1 text-sm font-semibold text-violet-700">
+          {offset === 0 ? (<>
+            <span>⏱ Active: {Math.floor(activeSecondsLeft / 3600)}h {formatTime(activeSecondsLeft % 3600)}</span>
+            <span className="text-amber-600">⏱ Not Active: {Math.floor(inactiveSecondsLeft / 3600)}h {formatTime(inactiveSecondsLeft % 3600)}</span>
+          </>) : "Month closed"}
         </div>
       </div>
       <div className="overflow-auto max-h-[536px]">
@@ -77,9 +78,18 @@ export default function WeeklyRedeemMonitor({ rows, title = "Monthly Redeem Moni
                 {r.days.map((n, i) => <td key={i} className={`text-center px-2 py-3 text-sm ${n ? "font-semibold text-emerald-700" : "text-gray-300"}`}>{n || "–"}</td>)}
                 <td className="text-center px-4 py-3 text-sm font-bold text-gray-900">{r.total}/{MONTHLY_REDEEM_TARGET}</td>
                 <td className="px-4 py-3">
-                  <Badge className={r.total >= MONTHLY_REDEEM_TARGET ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
-                    {r.total >= MONTHLY_REDEEM_TARGET ? "Met" : `${MONTHLY_REDEEM_TARGET - r.total} more needed`}
-                  </Badge>
+                  <div className="flex flex-col gap-1">
+                    <Badge className={r.total >= MONTHLY_REDEEM_TARGET ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}>
+                      {r.total >= MONTHLY_REDEEM_TARGET ? "Met" : `${MONTHLY_REDEEM_TARGET - r.total} more needed`}
+                    </Badge>
+                    {offset === 0 && (
+                      <span className="text-xs text-gray-500">
+                        ⏱ {r.total >= MONTHLY_REDEEM_TARGET
+                          ? `${Math.floor(activeSecondsLeft / 3600)}h ${formatTime(activeSecondsLeft % 3600)}`
+                          : `${Math.floor(inactiveSecondsLeft / 3600)}h ${formatTime(inactiveSecondsLeft % 3600)}`}
+                      </span>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
