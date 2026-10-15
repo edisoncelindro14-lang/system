@@ -20,6 +20,9 @@ export default function Login() {
       toast.error("Please enter username and password");
       return;
     }
+    // Switch password field to type="password" at submit so the browser can save credentials
+    const pwdInput = document.querySelector('input[name="password"]');
+    if (pwdInput) pwdInput.type = 'password';
     setBusy(true);
     try {
       const { data: members, error } = await supabase

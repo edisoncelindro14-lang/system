@@ -52,6 +52,10 @@ export default function Register() {
       toast.error("Passwords do not match");
       return;
     }
+    // Switch password fields to type="password" at submit so the browser can save credentials
+    document.querySelectorAll('input[type="text"]').forEach(el => {
+      if (el.name === 'new-password' || el.name === 'confirm_password') el.type = 'password';
+    });
     if (form.password.length < 6) {
       toast.error("Password must be at least 6 characters");
       return;
