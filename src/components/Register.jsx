@@ -13,7 +13,7 @@ export default function Register() {
   const ref = params.get("ref") || "";
   const nav = useNavigate();
   const [form, setForm] = useState({ username: "", password: "", confirm_password: "" });
-  const [showPwd, setShowPwd] = useState(true);
+  const [showPwd, setShowPwd] = useState(false);
   const [busy, setBusy] = useState(false);
   const [referrerInfo, setReferrerInfo] = useState(null);
   const [usernameStatus, setUsernameStatus] = useState("idle"); // idle | checking | taken | available
@@ -143,6 +143,8 @@ export default function Register() {
             label="Username"
             required
             icon={User}
+            name="username"
+            autoComplete="username"
             value={form.username}
             onChange={e => setForm({ ...form, username: e.target.value })}
             placeholder="Choose a username"
@@ -158,6 +160,8 @@ export default function Register() {
           label="Password"
           required
           icon={Lock}
+          name="new-password"
+          autoComplete="new-password"
           type={showPwd ? "text" : "password"}
           value={form.password}
           onChange={e => setForm({ ...form, password: e.target.value })}
@@ -173,6 +177,8 @@ export default function Register() {
           label="Confirm Password"
           required
           icon={Lock}
+          name="confirm_password"
+          autoComplete="new-password"
           type={showPwd ? "text" : "password"}
           value={form.confirm_password}
           onChange={e => setForm({ ...form, confirm_password: e.target.value })}
