@@ -189,6 +189,13 @@ export default function Dashboard() {
 
       <AnnouncementBanner />
 
+      <div className="mb-6 flex justify-center">
+        <a href="https://forms.gle/5WRjKTq8DRBChf6RA" target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 bg-black hover:bg-gray-800 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition-all hover:scale-105">
+          <FileText className="w-5 h-5" /> Client Form
+        </a>
+      </div>
+
       {/* Welcome header */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
