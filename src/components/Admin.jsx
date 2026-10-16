@@ -10,6 +10,7 @@ import {
 import toast from "react-hot-toast";
 import { useTable, updateRecord, createRecord, deleteRecord } from "../lib/useData";
 import { supabase } from "../lib/supabase";
+import { transferSponsor } from "../lib/sponsorTransfer";
 import { placementParent } from "../lib/genealogyPositions";
 import { getSessionMemberId } from "../lib/auth";
 import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "../lib/helpers";
@@ -354,6 +355,8 @@ export default function Admin() {
       await supabase.from("maintenance_codes").update({
         is_used: true, used_by_member_id: member.id, used_at: new Date().toISOString(),
       }).eq("id", codeRecord.id);
+      // Clear any manual override so the redeemed code drives maintenance status
+      await supabase.from("members").update({ maintenance_override: null }).eq("id", member.id);
       await supabase.from("transactions").insert({
         member_id: member.id, type: "maintenance_code", amount: 0,
         description: `Redeemed maintenance code: ${codeRecord.code}`, status: "completed",
@@ -426,23 +429,12 @@ export default function Admin() {
     setSavingProfile(false);
   }
 
-  // Change a member's sponsor atomically inside a single database transaction.
-  // The server-side change_sponsor() function enforces all genealogy invariants:
-  // atomicity, no duplicate rows/slots, cycle-free rotation, and counter accuracy.
+  // Change a member's sponsor: sets referrer_id + placement_id to the new sponsor.
   async function changeSponsor(memberId, newSponsorId) {
     try {
-      const { data, error } = await supabase.rpc("change_sponsor", {
-        p_member_id: memberId,
-        p_new_sponsor_id: newSponsorId || null,
-      });
-      if (error) throw error;
-      if (data?.changed === false) {
-        toast.success("Sponsor unchanged");
-        setSponsorModal(null);
-        return;
-      }
+      const data = await transferSponsor(supabase, memberId, newSponsorId);
       await refetchMembers();
-      toast.success(data?.swapped ? "Sponsor changed — genealogy positions rotated" : "Sponsor and genealogy updated");
+      toast.success(data.changed === false ? "Sponsor unchanged" : "Sponsor and genealogy updated");
       setSponsorModal(null);
     } catch (err) {
       toast.error(err?.message || "Failed to change sponsor");
@@ -1684,7 +1676,7 @@ export default function Admin() {
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-sm text-gray-500">Current sponsor: {members.find(m => m.id === sponsorModal.member?.referrer_id)?.username || "None (root)"}</p>
-                <p className="text-sm text-gray-500">Saving also updates genealogy placement and downline counts. Re-save the current sponsor to repair an attachment missing from the tree.</p>
+                <p className="text-sm text-gray-500">Transfers the member to the new sponsor — updates referral, genealogy placement, tree levels, and downline counts.</p>
                 <div>
                   <Label>Select New Sponsor</Label>
                   <select value={sponsorModal.newSponsorId} onChange={e => setSponsorModal({ ...sponsorModal, newSponsorId: e.target.value })}

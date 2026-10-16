@@ -81,18 +81,18 @@ export default function Layout({ children, currentPageName }) {
     <div className="relative min-h-screen overflow-clip">
       <RiceFieldBackground />
       {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-xl border-b border-green-200 z-50 px-4 flex items-center justify-between">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-xl border-b border-emerald-200 z-50 px-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img src={LOGO_URL} alt="Zistem" className="w-10 h-10 rounded-xl object-cover" />
           <span className="font-bold text-xl text-gray-900">Zistem</span>
         </div>
-        <button onClick={() => setMobileOpen(true)} className="p-3 rounded-xl bg-gradient-to-r from-green-500 to-green-600 shadow-lg active:scale-95 transition-all">
+        <button onClick={() => setMobileOpen(true)} className="p-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 shadow-lg active:scale-95 transition-all">
           <Menu className="w-8 h-8 text-white" />
         </button>
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-gradient-to-b from-green-500 via-green-400 to-green-300 border-r border-green-300/40 flex-col z-40">
+      <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-gradient-to-b from-emerald-600 via-emerald-500 to-emerald-400 border-r border-emerald-300/40 flex-col z-40">
         <div className="p-6 border-b border-white/20">
           <div className="flex items-center gap-3">
             <img src={LOGO_URL} alt="Zistem" className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/40" />
@@ -117,13 +117,13 @@ export default function Layout({ children, currentPageName }) {
           })}
         </nav>
         <div className="p-4 border-t border-white/20">
-          <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-600 to-green-500 rounded-xl mb-3 shadow-sm">
+          <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-emerald-700 to-emerald-600 rounded-xl mb-3 shadow-sm">
             <div className="w-10 h-10 bg-white/30 rounded-full flex items-center justify-center text-white font-bold ring-2 ring-white/40">
               {(member?.username || "U").charAt(0).toUpperCase()}
             </div>
             <p className="font-medium text-white truncate flex-1">{member?.username || "Member"}</p>
           </div>
-          <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-green-900 hover:text-green-800 hover:bg-green-200/60 font-medium transition-all">
+          <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-emerald-900 hover:text-emerald-800 hover:bg-emerald-200/60 font-medium transition-all">
             <LogOut className="w-4 h-4" /> Logout
           </button>
         </div>
@@ -136,7 +136,7 @@ export default function Layout({ children, currentPageName }) {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)} className="fixed inset-0 bg-black/50 z-50 lg:hidden" />
             <motion.aside
               initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed left-0 top-0 bottom-0 w-64 bg-gradient-to-b from-green-500 via-green-400 to-green-300 z-50 lg:hidden flex flex-col"
+              className="fixed left-0 top-0 bottom-0 w-64 bg-gradient-to-b from-emerald-600 via-emerald-500 to-emerald-400 z-50 lg:hidden flex flex-col"
             >
               <div className="p-6 border-b border-white/20 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -161,13 +161,13 @@ export default function Layout({ children, currentPageName }) {
                 })}
               </nav>
               <div className="p-4 border-t border-white/20">
-                <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-green-600 to-green-500 rounded-xl mb-3 shadow-sm">
+                <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-emerald-700 to-emerald-600 rounded-xl mb-3 shadow-sm">
                   <div className="w-10 h-10 bg-white/30 rounded-full flex items-center justify-center text-white font-bold ring-2 ring-white/40">
                     {(member?.username || "U").charAt(0).toUpperCase()}
                   </div>
                   <p className="font-medium text-white truncate flex-1">{member?.username || "Member"}</p>
                 </div>
-                <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-green-900 hover:text-green-800 hover:bg-green-200/60 font-bold transition-all">
+                <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-emerald-900 hover:text-emerald-800 hover:bg-emerald-200/60 font-bold transition-all">
                   <LogOut className="w-4 h-4" /> Logout
                 </button>
               </div>

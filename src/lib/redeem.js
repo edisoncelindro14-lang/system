@@ -17,6 +17,12 @@ export async function redeemCode(codeRecord, currentMember, allMembers, allCodes
     })
     .eq("id", codeRecord.id)];
 
+  // Clear any manual override so the redeemed code drives maintenance status
+  writes.push(supabase
+    .from("members")
+    .update({ maintenance_override: null })
+    .eq("id", currentMember.id));
+
   // Record transaction for the user
   writes.push(supabase.from("transactions").insert({
     member_id: currentMember.id,
@@ -67,6 +73,12 @@ export async function redeemCodeForMember(codeRecord, member, allMembers, allCod
       used_at: new Date().toISOString(),
     })
     .eq("id", codeRecord.id)];
+
+  // Clear any manual override so the redeemed code drives maintenance status
+  writes.push(supabase
+    .from("members")
+    .update({ maintenance_override: null })
+    .eq("id", member.id));
 
   writes.push(supabase.from("transactions").insert({
     member_id: member.id,
