@@ -194,7 +194,7 @@ export default function Dashboard() {
           className="inline-flex items-center gap-2 bg-black hover:bg-gray-800 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition-all hover:scale-105">
           <FileText className="w-5 h-5" /> Client Form
         </a>
-        <a href="https://forms.gle/5WRjKTq8DRBChf6RA" target="_blank" rel="noopener noreferrer"
+        <a href="https://forms.gle/nK2a1dH6WtHY1BHN9" target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 bg-amber-800 hover:bg-amber-900 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition-all hover:scale-105">
           <FileText className="w-5 h-5" /> Report Issue
         </a>
