@@ -355,6 +355,8 @@ export default function Admin() {
       await supabase.from("maintenance_codes").update({
         is_used: true, used_by_member_id: member.id, used_at: new Date().toISOString(),
       }).eq("id", codeRecord.id);
+      // Clear any manual override so the redeemed code drives maintenance status
+      await supabase.from("members").update({ maintenance_override: null }).eq("id", member.id);
       await supabase.from("transactions").insert({
         member_id: member.id, type: "maintenance_code", amount: 0,
         description: `Redeemed maintenance code: ${codeRecord.code}`, status: "completed",
