@@ -66,9 +66,6 @@ begin
 
   if p_new_sponsor_id is not null then
     -- Validate the new sponsor.
-    if p_new_sponsor_id = p_member_id then
-      raise exception 'A member cannot be their own sponsor';
-    end if;
     select * into v_new_sponsor from public.members where id = p_new_sponsor_id for update;
     if not found then raise exception 'New sponsor not found'; end if;
     v_new_old_ref := v_new_sponsor.referrer_id;
