@@ -70,7 +70,7 @@ export default function Layout({ children, currentPageName }) {
   function handleLogout() {
     clearMemberSession();
     clearDataCache();
-    nav("/");
+    nav("/MemberLogin");
   }
 
   if (currentPageName === "Register" || currentPageName === "MemberLogin") {
