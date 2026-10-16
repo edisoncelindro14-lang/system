@@ -30,14 +30,13 @@ export default function Dashboard() {
   const minAmount = parseFloat(minWithdrawal);
 
   const myTx = currentMember ? transactions.filter(t => t.member_id === currentMember.id) : [];
-  const lastWithdrawal = myTx
-    .filter(t => (t.type === "withdrawal" || t.type === "product_conversion") && t.status === "completed")
-    .sort((a, b) => new Date(b.created_date || b.created_at) - new Date(a.created_date || a.created_at))[0];
-  const lastWDate = lastWithdrawal ? new Date(lastWithdrawal.created_date || lastWithdrawal.created_at) : null;
 
   const availableBalance = myTx
-    .filter(t => ["level_bonus", "referral_bonus", "adjustment"].includes(t.type) && (!lastWDate || new Date(t.created_date || t.created_at) > lastWDate))
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    .filter(t => ["level_bonus", "referral_bonus", "adjustment"].includes(t.type) && t.status === "completed")
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0)
+    - myTx
+      .filter(t => (t.type === "withdrawal" || t.type === "product_conversion") && t.status === "completed")
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount || 0)), 0);
 
   const productWalletBalance = myTx
     .filter(t => t.type === "product_conversion" && t.status === "completed")
