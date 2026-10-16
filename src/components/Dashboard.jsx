@@ -181,7 +181,7 @@ export default function Dashboard() {
       {/* Top action buttons */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-2 flex justify-end gap-2 sm:gap-3">
         {termsVisible && (
-          <a href="https://forms.gle/5WRjKTq8DRBChf6RA" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm h-auto whitespace-nowrap shadow-sm transition-colors">
+          <a href="https://forms.gle/q4VPFaoRJPMc7i5A9" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm h-auto whitespace-nowrap shadow-sm transition-colors">
             <FileText className="w-4 h-4 mr-1" /> Membership Terms & Conditions
           </a>
         )}
@@ -194,7 +194,7 @@ export default function Dashboard() {
           className="inline-flex items-center gap-2 bg-black hover:bg-gray-800 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition-all hover:scale-105">
           <FileText className="w-5 h-5" /> Client Form
         </a>
-        <a href="https://forms.gle/5WRjKTq8DRBChf6RA" target="_blank" rel="noopener noreferrer"
+        <a href="https://forms.gle/nK2a1dH6WtHY1BHN9" target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 bg-amber-800 hover:bg-amber-900 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition-all hover:scale-105">
           <FileText className="w-5 h-5" /> Report Issue
         </a>
