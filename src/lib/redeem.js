@@ -111,11 +111,13 @@ async function distributeUplineBonuses(member, allMembers, allCodes, codeRecord)
   };
 
   const bonusWrites = [];
+  const paidMembers = new Set();
   let current = member;
   for (let level = 1; level <= MAX_BONUS_LEVEL; level++) {
     const upline = allMembers.find(m => m.id === current.referrer_id);
     if (!upline) break;
-    if (canEarn(upline)) {
+    if (canEarn(upline) && !paidMembers.has(upline.id)) {
+      paidMembers.add(upline.id);
       const bonus = LEVEL_CONFIG.find(l => l.level === level)?.bonus_amount || 0;
       if (bonus > 0) {
         bonusWrites.push(supabase.from("transactions").insert({

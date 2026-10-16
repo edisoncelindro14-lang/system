@@ -28,12 +28,14 @@ export async function distributePlacementCommissions(member, allMembers, allCode
 
   let distributed = 0;
   let current = member;
+  const paidMembers = new Set();
 
   for (let level = 1; level <= MAX_BONUS_LEVEL; level++) {
     const upline = allMembers.find(m => m.id === current.referrer_id);
     if (!upline) break;
 
-    if (canEarn(upline)) {
+    if (canEarn(upline) && !paidMembers.has(upline.id)) {
+      paidMembers.add(upline.id);
       const bonus = LEVEL_CONFIG.find(l => l.level === level)?.bonus_amount || 0;
       if (bonus > 0) {
         await supabase.from("transactions").insert({
