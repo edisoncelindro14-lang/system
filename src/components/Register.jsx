@@ -203,7 +203,7 @@ export default function Register() {
         </p>
 
         {termsVisible && (
-          <a href="https://forms.gle/5WRjKTq8DRBChf6RA" target="_blank" rel="noopener noreferrer" className="block">
+          <a href="https://forms.gle/q4VPFaoRJPMc7i5A9" target="_blank" rel="noopener noreferrer" className="block">
             <button
               type="button"
               className="w-full h-[52px] rounded-xl text-base font-medium shadow-lg hover:brightness-105 transition"
