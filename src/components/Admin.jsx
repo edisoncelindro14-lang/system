@@ -441,9 +441,9 @@ export default function Admin() {
         setSponsorModal(null);
         return;
       }
-      toast.success(data?.swapped ? "Sponsor changed — positions rotated" : "Sponsor updated");
+      await refetchMembers();
+      toast.success(data?.swapped ? "Sponsor changed — genealogy positions rotated" : "Sponsor and genealogy updated");
       setSponsorModal(null);
-      window.location.reload();
     } catch (err) {
       toast.error(err?.message || "Failed to change sponsor");
     }
@@ -718,7 +718,7 @@ export default function Admin() {
                   </div>
                   {/* Action pills */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button onClick={() => setSponsorModal({ member: m, newSponsorId: "" })} className="p-2 bg-yellow-100 text-yellow-600 rounded-lg hover:bg-yellow-200 transition-colors" title="Change Sponsor"><GitBranch className="w-4 h-4" /></button>
+                    <button onClick={() => setSponsorModal({ member: m, newSponsorId: m.referrer_id || "" })} className="p-2 bg-yellow-100 text-yellow-600 rounded-lg hover:bg-yellow-200 transition-colors" title="Change Sponsor"><GitBranch className="w-4 h-4" /></button>
                     <button onClick={() => setEditMember({ ...m })} className="p-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors" title="Edit Member"><Pencil className="w-4 h-4" /></button>
                     <button onClick={() => { setRedeemModal(m); setRedeemCode(""); }} className="p-2 bg-teal-100 text-teal-600 rounded-lg hover:bg-teal-200 transition-colors" title="Redeem Code"><Key className="w-4 h-4" /></button>
                     {(isSupAdmin || isOwner) && <button onClick={() => setOverrideModal(m)} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors" title="Maintenance Override"><Clock className="w-4 h-4" /></button>}
@@ -1684,7 +1684,7 @@ export default function Admin() {
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-sm text-gray-500">Current sponsor: {members.find(m => m.id === sponsorModal.member?.referrer_id)?.username || "None (root)"}</p>
-                <p className="text-sm text-gray-500">Changing the sponsor will update downline counts for both old and new sponsors.</p>
+                <p className="text-sm text-gray-500">Saving also updates genealogy placement and downline counts. Re-save the current sponsor to repair an attachment missing from the tree.</p>
                 <div>
                   <Label>Select New Sponsor</Label>
                   <select value={sponsorModal.newSponsorId} onChange={e => setSponsorModal({ ...sponsorModal, newSponsorId: e.target.value })}

@@ -283,7 +283,7 @@ export default function Genealogy() {
             <div className="w-1 h-6 rounded-full bg-gradient-to-b from-emerald-400 to-blue-500" />
             {/* Children row */}
             <div className="flex flex-nowrap justify-center gap-4">
-              {downlines.slice(0, 8).map((d, i, arr) => {
+              {downlines.map((d, i, arr) => {
                 const isOnly = arr.length === 1;
                 const isFirst = i === 0;
                 const isLast = i === arr.length - 1;
