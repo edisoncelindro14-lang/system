@@ -258,23 +258,7 @@ export default function Genealogy() {
               <UserPlus className="w-3 h-3" /> Place Here
             </button>
           )}
-          {isSuperAdmin && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSwapSource(swapSource?.id === member.id ? null : member);
-                setSwapTarget(null);
-                setSwapSearch("");
-              }}
-              className={`relative mt-2 w-full backdrop-blur-sm rounded-lg py-1.5 text-[10px] font-bold flex items-center justify-center gap-1 transition-all border ${
-                swapSource?.id === member.id
-                  ? "bg-amber-500 text-white border-amber-300"
-                  : "bg-white/25 hover:bg-white/40 text-white border-white/30 hover:border-white/50"
-              }`}
-            >
-              <ArrowUpDown className="w-3 h-3" /> {swapSource?.id === member.id ? "Cancel Swap" : "Swap Position"}
-            </button>
-          )}
+
         </div>
 
         {/* Children with T-junction connectors */}
