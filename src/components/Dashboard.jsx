@@ -181,7 +181,7 @@ export default function Dashboard() {
       {/* Top action buttons */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-2 flex justify-end gap-2 sm:gap-3">
         {termsVisible && (
-          <a href="https://forms.gle/bMLvWgG2KGfYXzBz8" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm h-auto whitespace-nowrap shadow-sm transition-colors">
+          <a href="https://forms.gle/5WRjKTq8DRBChf6RA" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm h-auto whitespace-nowrap shadow-sm transition-colors">
             <FileText className="w-4 h-4 mr-1" /> Membership Terms & Conditions
           </a>
         )}
