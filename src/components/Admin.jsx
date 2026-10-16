@@ -426,48 +426,27 @@ export default function Admin() {
     setSavingProfile(false);
   }
 
-  // Collect a member's entire referrer-based downline (for circular-reference prevention)
-  function getSponsorDownlineIds(memberId, allMembers) {
-    const ids = new Set([memberId]);
-    const stack = [memberId];
-    while (stack.length) {
-      const cur = stack.pop();
-      allMembers.filter(m => m.referrer_id === cur).forEach(m => {
-        if (!ids.has(m.id)) { ids.add(m.id); stack.push(m.id); }
-      });
-    }
-    return ids;
-  }
-
+  // Change a member's sponsor atomically inside a single database transaction.
+  // The server-side change_sponsor() function enforces all genealogy invariants:
+  // atomicity, no duplicate rows/slots, cycle-free rotation, and counter accuracy.
   async function changeSponsor(memberId, newSponsorId) {
     try {
-      // Fetch fresh members so repeatable swaps always use current DB state
-      const { data: freshMembers } = await supabase.from("members").select("*");
-      const allMembers = freshMembers || members;
-      const member = allMembers.find(m => m.id === memberId);
-      if (!member) { toast.error("Member not found"); return; }
-
-      const oldSponsorId = member.referrer_id || null;
-      const newId = newSponsorId || null;
-
-      // No-op if the sponsor isn't actually changing
-      if (newId === oldSponsorId) {
+      const { data, error } = await supabase.rpc("change_sponsor", {
+        p_member_id: memberId,
+        p_new_sponsor_id: newSponsorId || null,
+      });
+      if (error) throw error;
+      if (data?.changed === false) {
         toast.success("Sponsor unchanged");
         setSponsorModal(null);
         return;
       }
-
-      const oldSponsor = oldSponsorId ? allMembers.find(m => m.id === oldSponsorId) : null;
-      const newSponsor = newId ? allMembers.find(m => m.id === newId) : null;
-
-      await updateRecord("members", memberId, { referrer_id: newId });
-      if (oldSponsor) await updateRecord("members", oldSponsor.id, { direct_downlines_count: Math.max(0, (oldSponsor.direct_downlines_count || 0) - 1) });
-      if (newSponsor) await updateRecord("members", newSponsor.id, { direct_downlines_count: (newSponsor.direct_downlines_count || 0) + 1 });
-
-      toast.success("Sponsor updated");
+      toast.success(data?.swapped ? "Sponsor changed — positions rotated" : "Sponsor updated");
       setSponsorModal(null);
       window.location.reload();
-    } catch { toast.error("Failed to change sponsor"); }
+    } catch (err) {
+      toast.error(err?.message || "Failed to change sponsor");
+    }
   }
 
   async function setRole(id, role) {
