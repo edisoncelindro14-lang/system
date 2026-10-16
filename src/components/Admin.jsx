@@ -10,6 +10,7 @@ import {
 import toast from "react-hot-toast";
 import { useTable, updateRecord, createRecord, deleteRecord } from "../lib/useData";
 import { supabase } from "../lib/supabase";
+import { transferSponsor } from "../lib/sponsorTransfer";
 import { placementParent } from "../lib/genealogyPositions";
 import { getSessionMemberId } from "../lib/auth";
 import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "../lib/helpers";
@@ -429,18 +430,9 @@ export default function Admin() {
   // Change a member's sponsor: sets referrer_id + placement_id to the new sponsor.
   async function changeSponsor(memberId, newSponsorId) {
     try {
-      const { data, error } = await supabase.rpc("change_sponsor", {
-        p_member_id: memberId,
-        p_new_sponsor_id: newSponsorId || null,
-      });
-      if (error) throw error;
-      if (data?.changed === false) {
-        toast.success("Sponsor unchanged");
-        setSponsorModal(null);
-        return;
-      }
+      const data = await transferSponsor(supabase, memberId, newSponsorId);
       await refetchMembers();
-      toast.success("Sponsor and genealogy updated");
+      toast.success(data.changed === false ? "Sponsor unchanged" : "Sponsor and genealogy updated");
       setSponsorModal(null);
     } catch (err) {
       toast.error(err?.message || "Failed to change sponsor");

@@ -4,7 +4,8 @@ import { getSessionMemberId } from "./auth";
 
 // Last result per query, so revisiting a page shows data instantly while it refreshes silently.
 // Persisted in sessionStorage so a full page refresh also renders instantly from the last result.
-const CACHE_KEY = "mlm_data_cache";
+// Never reuse member snapshots from another Supabase project or the local fallback.
+const CACHE_KEY = `mlm_data_cache:${supabase.supabaseUrl}`;
 let initial = [];
 try { initial = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "[]"); } catch { /* ignore */ }
 const cache = new Map(initial);

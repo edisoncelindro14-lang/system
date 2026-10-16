@@ -18,7 +18,7 @@ React 18 + Vite 6 frontend. Backend is the external Supabase project (ref: mtfrv
 ## How it works
 The app's `src/lib/supabase.js` creates a Supabase client pointing at `VITE_SUPABASE_URL`.
 
-**Currently using the local PostgREST stack** — the real Supabase project is missing the `placement_id` column on the `members` table, which the "Place Here" lobby button needs. The `web` service `environment:` section in `docker-compose.base44.yml` overrides `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to point at the local PostgREST stack. The local DB was seeded with a snapshot of the real Supabase data.
+**Database selection:** `.env.base44-defaults` supplies sandbox-only local PostgREST values. `/run/base44/app.env` is loaded last and wins; never put `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY` under Compose `environment:` because it silently overrides dashboard credentials. Supply both from the same Supabase project to switch. The local database is separate, not a live mirror (currently only the seeded admin). External Supabase is reachable but its schema is NOT verified without credentials. See README for setup; no shared-code preview flag override is used.
 
 **Vercel placement setup:** Vercel does not apply SQL migrations. Run `supabase/migrations/005_genealogy_placement.sql` in the SQL Editor of the Supabase project used by Vercel; it adds `placement_id` and reloads the REST schema cache. Do not replace placement with `referrer_id`: the sponsor must be preserved.
 
@@ -32,13 +32,9 @@ The app's `src/lib/supabase.js` creates a Supabase client pointing at `VITE_SUPA
 
 **Restoration:** Account approval and maintenance activation are separate. Restoring sets `status = approved` immediately, keeps placement, and sets the existing red maintenance override with cleared custom timers. It does not run placement approval or distribute commissions. Older databases may lack `deleted_date`; only that missing-column error should trigger the timestamp-free retry.
 
-**To switch back to the real Supabase:** run migration `005_genealogy_placement.sql` (or the SQL below followed by `notify pgrst, 'reload schema'`) on the Supabase dashboard SQL editor, then remove the two override lines from the `web` service `environment:` section:
-```sql
-alter table public.members add column if not exists placement_id uuid references public.members(id) on delete set null;
-create index if not exists idx_members_placement on public.members(placement_id);
-```
+**External Supabase setup:** Run the current `012_change_sponsor_function.sql` in that project's SQL Editor (now includes placement column/index prerequisites and a transaction), then supply its matching URL/public key through secure secrets. Local Compose migrations never apply remotely. If needed, review/run `013_repair_sponsor_only_attachments.sql` separately for historic orphan attachments. Do not disable RLS or use a service-role key in the frontend.
 
-**If the external Supabase becomes unreachable again:** add `VITE_SUPABASE_URL=https://8000-${BASE44_PUBLIC_HOST_SUFFIX}` and a valid PostgREST JWT as `VITE_SUPABASE_ANON_KEY` to the `web` service `environment:` section in `docker-compose.base44.yml` to fall back to the local PostgREST stack.
+**Transfer save failures:** Both Admin and genealogy drag/drop call `transferSponsor` in `src/lib/sponsorTransfer.js`. It uses one atomic RPC and reads back both saved links before success; missing schema/function errors explicitly name migration 012, while permission errors remain errors. The old drag flow ignored failed writes, changed placement without sponsorship, and miscalculated descendant levels. Query caches now include the Supabase URL, so switching databases cannot reuse a member snapshot from a different project. Test the helper with `node --test src/lib/sponsorTransfer.test.js` in the web container.
 
 ## Shared maintenance countdown
 - `MaintenanceProvider` inside the layout supplies one maintenance status, one clock, and refreshed member/code data to the top banner and Code Cabinet. Keep the cabinet's monthly monitor on this shared status; calendar-month totals must not determine its maintenance timer or activation state.

@@ -2,5 +2,16 @@
   "previewPort": 3000,
   "healthPath": "/",
   "startCommand": "docker compose -f docker-compose.base44.yml up -d",
-  "secrets": []
+  "secrets": [
+    {
+      "name": "VITE_SUPABASE_URL",
+      "description": "Supabase Project Settings > Data API: project URL. Supply with VITE_SUPABASE_ANON_KEY to use the external project instead of the local sandbox database.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "VITE_SUPABASE_ANON_KEY",
+      "description": "Supabase Project Settings > API Keys: publishable or anon public key from the same project as VITE_SUPABASE_URL. Never use a service-role key in Vite.",
+      "requiredAtBoot": false
+    }
+  ]
 }

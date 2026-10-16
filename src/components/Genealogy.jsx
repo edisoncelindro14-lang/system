@@ -7,6 +7,7 @@ import { Button } from "./ui";
 import { maintenanceStatus, formatTime } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
 import { supabase } from "../lib/supabase";
+import { transferSponsor } from "../lib/sponsorTransfer";
 import { placementParent, placementChildren, planPositionSwap } from "../lib/genealogyPositions";
 import toast from "react-hot-toast";
 
@@ -359,36 +360,6 @@ export default function Genealogy() {
     setPlacing(false);
   }
 
-  // Recursively update tree_level for all descendants of a member
-  async function updateSubtreeLevels(memberId, parentLevel, allMembers) {
-    const visited = new Set([memberId]);
-    const stack = [{ id: memberId, level: parentLevel }];
-    while (stack.length) {
-      const { id, level } = stack.pop();
-      const children = allMembers.filter(m => placementParent(m) === id && !visited.has(m.id));
-      for (const child of children) {
-        visited.add(child.id);
-        await updateRecord("members", child.id, { tree_level: level + 1 });
-        stack.push({ id: child.id, level: level + 1 });
-      }
-    }
-  }
-
-  // Recount direct_downlines_count from actual children for given member IDs
-  async function recountDownlines(memberIds, allMembers) {
-    const affected = new Set();
-    for (const id of memberIds) {
-      if (!id) continue;
-      const actualCount = allMembers.filter(m => placementParent(m) === id).length;
-      const member = allMembers.find(m => m.id === id);
-      if (member && (member.direct_downlines_count || 0) !== actualCount) {
-        await updateRecord("members", id, { direct_downlines_count: actualCount });
-        member.direct_downlines_count = actualCount;
-      }
-    }
-    return affected;
-  }
-
   async function handleSwapPosition() {
     if (!swapSource || !swapTarget) return;
     setPlacing(true);
@@ -442,36 +413,15 @@ export default function Genealogy() {
     setPlacing(true);
     try {
       const { source, target } = moveConfirm;
-      const { data: freshMembers } = await supabase.from("members").select("*");
-      const allMembers = freshMembers || members;
-      const src = allMembers.find(m => m.id === source.id);
-      const tgt = allMembers.find(m => m.id === target.id);
-      if (!src || !tgt) { toast.error("Member not found"); return; }
-      if (src.id === tgt.id) { toast.error("Cannot move a member to themselves"); return; }
-
-      // No relationship restrictions — upline, downline, and crossline moves all allowed
-      const oldParentId = src.placement_id || src.referrer_id;
-
-      // Move source to target
-      await updateRecord("members", src.id, {
-        placement_id: tgt.id,
-        tree_level: (tgt.tree_level || 0) + 1,
-      });
-      src.placement_id = tgt.id;
-
-      // Recount downlines for old parent and new target
-      await recountDownlines([oldParentId, tgt.id].filter(Boolean), allMembers);
-
-      // Update subtree levels for the moved member
-      await updateSubtreeLevels(src.id, (tgt.tree_level || 0), allMembers);
-
-      toast.success(`${src.username} moved to ${tgt.username}'s downline`);
-      setMoveConfirm(null);
+      await transferSponsor(supabase, source.id, target.id);
       await refetchMembers();
+      toast.success(`${source.username} moved to ${target.username}'s downline`);
+      setMoveConfirm(null);
     } catch (err) {
       toast.error(err?.message || "Failed to move member");
+    } finally {
+      setPlacing(false);
     }
-    setPlacing(false);
   }
 
   if (isLoading) {

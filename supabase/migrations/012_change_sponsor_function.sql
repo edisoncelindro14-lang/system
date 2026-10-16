@@ -1,6 +1,12 @@
 -- Simple sponsor transfer: set referrer_id + placement_id to the new sponsor.
 -- No cycle restrictions, no position rotation, no duplicate checks.
--- Re-run this migration on external Supabase after updating the app.
+-- Re-run this migration on the Supabase project the frontend actually uses.
+-- Include the placement prerequisites: a frontend deploy does not install SQL.
+begin;
+alter table public.members
+  add column if not exists placement_id uuid references public.members(id) on delete set null;
+alter table public.members add column if not exists placement_order integer;
+create index if not exists idx_members_placement on public.members(placement_id);
 
 create or replace function public.change_sponsor(p_member_id uuid, p_new_sponsor_id uuid)
 returns jsonb
@@ -34,16 +40,17 @@ begin
   -- No-op if nothing changed
   if p_new_sponsor_id is not distinct from v_old_sponsor
      and v_member.placement_id is not distinct from p_new_sponsor_id
-     and v_member.tree_level = (case when p_new_sponsor_id is null then 0 else v_new_sponsor.tree_level + 1 end) then
+     and v_member.tree_level = (case when p_new_sponsor_id is null then 0 else coalesce(v_new_sponsor.tree_level, 0) + 1 end) then
     return jsonb_build_object('success', true, 'changed', false);
   end if;
 
   -- Simple transfer: set referrer_id and placement_id to the new sponsor.
-  v_new_level := case when p_new_sponsor_id is null then 0 else v_new_sponsor.tree_level + 1 end;
+  v_new_level := case when p_new_sponsor_id is null then 0 else coalesce(v_new_sponsor.tree_level, 0) + 1 end;
 
   update public.members
   set referrer_id = p_new_sponsor_id,
       placement_id = p_new_sponsor_id,
+      placement_order = case when placement_id is not distinct from p_new_sponsor_id then placement_order else null end,
       tree_level = v_new_level,
       updated_at = now()
   where id = p_member_id;
@@ -63,7 +70,7 @@ begin
   -- Recount direct_downlines_count for old and new sponsors (and old/new placement parents).
   with affected(id) as (
     select distinct id from unnest(array[v_old_sponsor, v_old_placement,
-      p_new_sponsor_id, p_new_sponsor_id]) as ids(id)
+      p_new_sponsor_id]) as ids(id)
     where id is not null
   ), counts as (
     select coalesce(placement_id,
@@ -80,3 +87,4 @@ end $$;
 
 grant execute on function public.change_sponsor(uuid, uuid) to anon;
 notify pgrst, 'reload schema';
+commit;
