@@ -45,8 +45,8 @@ export default function LevelBonuses() {
         className="bg-gradient-to-r from-amber-700 to-amber-900 rounded-3xl p-6 text-white mb-8 shadow-xl">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div><p className="text-amber-200 text-sm">Zistem Levels</p><p className="text-4xl font-extrabold">6</p></div>
-          <div><p className="text-amber-200 text-sm">Max Downlines per Member</p><p className="text-4xl font-extrabold">8</p></div>
-          <div><p className="text-amber-200 text-sm">Total Maximum Earnings</p><p className="text-4xl font-extrabold">{money(totalMax)}</p></div>
+          <div><p className="text-amber-200 text-sm">Max 1st Level Downlines per Member</p><p className="text-4xl font-extrabold">8</p></div>
+          <div><p className="text-amber-200 text-sm">Total Maximum Earnings MONTHLY</p><p className="text-4xl font-extrabold">{money(totalMax)}</p></div>
         </div>
       </motion.div>
 
@@ -90,8 +90,8 @@ export default function LevelBonuses() {
         className="bg-gradient-to-r from-amber-700 to-amber-900 rounded-3xl p-6 text-white mt-8 shadow-xl">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div><p className="text-amber-200 text-sm">Zistem Levels</p><p className="text-4xl font-extrabold">6</p></div>
-          <div><p className="text-amber-200 text-sm">Max Downlines per Member</p><p className="text-4xl font-extrabold">8</p></div>
-          <div><p className="text-amber-200 text-sm">Total Maximum Earnings</p><p className="text-4xl font-extrabold">{money(totalMax)}</p></div>
+          <div><p className="text-amber-200 text-sm">Max 1st Level Downlines per Member</p><p className="text-4xl font-extrabold">8</p></div>
+          <div><p className="text-amber-200 text-sm">Total Maximum Earnings MONTHLY</p><p className="text-4xl font-extrabold">{money(totalMax)}</p></div>
         </div>
       </motion.div>
     </div>
