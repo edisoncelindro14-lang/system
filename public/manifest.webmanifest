@@ -6,6 +6,7 @@
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait",
+  "categories": ["business", "productivity"],
   "start_url": "/",
   "scope": "/",
   "icons": [

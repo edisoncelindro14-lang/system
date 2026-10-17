@@ -93,19 +93,19 @@ export default function CodeCabinet() {
       </motion.div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-2xl shadow border border-gray-100 p-5">
-          <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl mb-3 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow border border-[#4546F4]/30 p-5">
+          <div className="w-10 h-10 bg-[#4546F4] rounded-xl mb-3 flex items-center justify-center">
             <KeyRound className="w-5 h-5 text-white" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">{pending.length}</p>
-          <p className="text-sm text-gray-500">Available to redeem</p>
+          <p className="text-2xl font-bold text-[#1B0F3E]">{pending.length}</p>
+          <p className="text-sm text-[#1B0F3E]/70">Available to redeem</p>
         </div>
-        <div className="bg-white rounded-2xl shadow border border-gray-100 p-5">
-          <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl mb-3 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow border border-[#5ED993]/40 p-5">
+          <div className="w-10 h-10 bg-[#5ED993] rounded-xl mb-3 flex items-center justify-center">
             <CheckCircle2 className="w-5 h-5 text-white" />
           </div>
-          <p className="text-2xl font-bold text-gray-900">{redeemed.length}</p>
-          <p className="text-sm text-gray-500">Redeemed</p>
+          <p className="text-2xl font-bold text-[#1B0F3E]">{redeemed.length}</p>
+          <p className="text-sm text-[#1B0F3E]/70">Redeemed</p>
         </div>
       </div>
 
@@ -127,9 +127,9 @@ export default function CodeCabinet() {
       />
 
       {/* Pending codes */}
-      <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden mb-6">
-        <div className="p-6 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">Available Codes</h2>
+      <div className="bg-white rounded-3xl shadow-lg border border-[#4546F4]/30 overflow-hidden mb-6">
+        <div className="p-6 border-b border-white/10 bg-[#4546F4]">
+          <h2 className="text-lg font-bold text-white">Available Codes</h2>
         </div>
         {pending.length === 0 ? (
           <p className="text-center py-10 text-gray-400">No codes assigned to you yet. When a store sends you a code, it will appear here.</p>
@@ -155,7 +155,7 @@ export default function CodeCabinet() {
                     disabled={!canRedeem || redeemBusyId === c.id}
                     className={!canRedeem
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "!bg-blue-600 hover:!bg-blue-700 !text-white"}
+                      : "!bg-[#4546F4] hover:!bg-[#3a3ac0] !text-white"}
                     onClick={() => handleRedeem(c)}
                   >
                     {redeemBusyId === c.id ? "Redeeming..." : "Redeem"} {canRedeem && <ArrowRight className="w-3.5 h-3.5" />}
@@ -169,9 +169,9 @@ export default function CodeCabinet() {
 
       {/* Transaction history */}
       {myHistory.length > 0 && (
-        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden mb-6">
-          <div className="p-6 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><History className="w-5 h-5 text-violet-500" /> Redemption History</h2>
+        <div className="bg-white rounded-3xl shadow-lg border border-[#4546F4]/30 overflow-hidden mb-6">
+          <div className="p-6 border-b border-white/10 bg-[#4546F4]">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2"><History className="w-5 h-5 text-white" /> Redemption History</h2>
           </div>
           <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
             {myHistory.map(h => (
@@ -180,7 +180,7 @@ export default function CodeCabinet() {
                   <p className="font-mono font-bold text-gray-700">{h.code}</p>
                   <p className="text-xs text-gray-400 mt-0.5">Redeemed {formatDate(h.redeemed_at, "MMM d, yyyy h:mm a")}</p>
                 </div>
-                <Badge className="bg-green-100 text-green-700">Completed</Badge>
+                <Badge className="bg-[#5ED993] text-[#1B0F3E]">Completed</Badge>
               </div>
             ))}
           </div>
@@ -189,9 +189,9 @@ export default function CodeCabinet() {
 
       {/* Redeemed codes */}
       {redeemed.length > 0 && (
-        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-500">Redeemed Codes</h2>
+        <div className="bg-white rounded-3xl shadow-lg border border-[#4546F4]/30 overflow-hidden">
+          <div className="p-6 border-b border-white/10 bg-[#4546F4]">
+            <h2 className="text-lg font-bold text-white">Redeemed Codes</h2>
           </div>
           <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
             {redeemed.map(c => (
@@ -200,7 +200,7 @@ export default function CodeCabinet() {
                   <p className="font-mono font-bold text-gray-400">{c.code}</p>
                   <p className="text-xs text-gray-400 mt-0.5">Redeemed {c.used_at ? formatDate(c.used_at, "MMM d, yyyy h:mm a") : "—"}</p>
                 </div>
-                <Badge className="bg-gray-100 text-gray-500">Redeemed</Badge>
+                <Badge className="bg-[#E4E18B] text-[#1B0F3E]">Redeemed</Badge>
               </div>
             ))}
           </div>

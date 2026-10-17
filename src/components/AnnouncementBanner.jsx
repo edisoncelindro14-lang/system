@@ -27,7 +27,7 @@ export default function AnnouncementBanner() {
   if (!enabled || !text) return null;
 
   return (
-    <div className="mb-6 rounded-2xl shadow-md bg-orange-700 text-white px-4 py-3 text-sm font-medium flex items-center justify-center gap-2">
+    <div className="mb-6 rounded-2xl shadow-md bg-[#1D5E63] text-white px-4 py-3 text-sm font-medium flex items-center justify-center gap-2">
       <span className="whitespace-pre-wrap">{text}</span>
     </div>
   );
