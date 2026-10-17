@@ -36,7 +36,10 @@ export function GCashButton() {
       if (!dragging.current || !posStart.current) return;
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
-      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved.current = true;
+      // Generous slop so a mobile finger tap (which naturally jitters a few px
+      // under touch-action: none) is not mistaken for a drag.
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) moved.current = true;
+      if (!moved.current) return;
       const btn = btnRef.current;
       const bw = btn?.offsetWidth || 140;
       const bh = btn?.offsetHeight || 48;
@@ -47,13 +50,16 @@ export function GCashButton() {
     function handleUp() {
       if (!dragging.current) return;
       dragging.current = false;
-      if (!moved.current) setOpen(o => !o);
+      // Toggling is handled by the button's onClick (reliable on mobile);
+      // here we only end the drag. moved.current stays for the click check.
     }
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
     return () => {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
     };
   }, []);
 
@@ -121,11 +127,19 @@ export function GCashButton() {
   }
 
   const onPointerDown = (e) => {
-    e.preventDefault();
+    // Don't preventDefault: touch-action: none already stops scrolling/zoom on
+    // the bubble, and we need the native click event to fire on mobile so the
+    // tap reliably toggles the popup.
     dragging.current = true;
     moved.current = false;
     dragStart.current = { x: e.clientX, y: e.clientY };
     posStart.current = { ...pos };
+  };
+
+  const onClick = () => {
+    // A real drag suppresses the toggle; a tap (no significant move) opens it.
+    if (moved.current) return;
+    setOpen(o => !o);
   };
 
   return (
@@ -133,6 +147,7 @@ export function GCashButton() {
       <button
         ref={btnRef}
         onPointerDown={onPointerDown}
+        onClick={onClick}
         style={pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined}
         className="fixed z-50 h-12 lg:h-14 pl-4 pr-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg lg:shadow-xl flex items-center gap-2 touch-none select-none cursor-grab active:cursor-grabbing"
         title="GCash Payment — drag to move"
