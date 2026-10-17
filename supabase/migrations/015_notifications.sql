@@ -17,3 +17,9 @@ create index if not exists idx_notifications_created on public.notifications(cre
 -- tables that existed when it ran, so repeat it for this new table).
 -- No sequence grant: ids use gen_random_uuid(), so there is no *_id_seq.
 grant select, insert, update, delete on public.notifications to anon;
+
+-- RLS: Supabase enables RLS by default on new tables. Without a policy,
+-- all inserts are blocked with "new row violates row-level security policy".
+alter table public.notifications enable row level security;
+create policy "allow_all_notifications" on public.notifications
+  for all using (true) with check (true);
