@@ -36,7 +36,7 @@ export function GCashButton() {
       if (!dragging.current || !posStart.current) return;
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
-      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved.current = true;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) moved.current = true;
       const btn = btnRef.current;
       const bw = btn?.offsetWidth || 140;
       const bh = btn?.offsetHeight || 48;
@@ -47,7 +47,12 @@ export function GCashButton() {
     function handleUp() {
       if (!dragging.current) return;
       dragging.current = false;
-      if (!moved.current) setOpen(o => !o);
+      if (!moved.current) {
+        // Defer the toggle so the click event that follows pointerup fires
+        // on the button (harmless) BEFORE the modal renders — otherwise the
+        // click lands on the newly-opened modal's upload label or overlay.
+        setTimeout(() => setOpen(o => !o), 0);
+      }
     }
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
@@ -131,8 +136,10 @@ export function GCashButton() {
   return (
     <>
       <button
+        type="button"
         ref={btnRef}
         onPointerDown={onPointerDown}
+        onClick={e => e.preventDefault()}
         style={pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : undefined}
         className="fixed z-50 h-12 lg:h-14 pl-4 pr-5 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-lg lg:shadow-xl flex items-center gap-2 touch-none select-none cursor-grab active:cursor-grabbing"
         title="GCash Payment — drag to move"
