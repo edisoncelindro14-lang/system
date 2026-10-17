@@ -1,5 +1,7 @@
--- Simple sponsor transfer: set referrer_id + placement_id to the new sponsor.
--- No cycle restrictions, no position rotation, no duplicate checks.
+-- Sponsor transfer: set referrer_id + placement_id to the new sponsor, move the
+-- slot to the new upline (proper placement_order), and compact remaining slots in
+-- the old upline so no duplicate/gap is left behind.
+-- No cycle restrictions, no position rotation.
 -- Re-run this migration on the Supabase project the frontend actually uses.
 -- Include the placement prerequisites: a frontend deploy does not install SQL.
 begin;
@@ -20,6 +22,8 @@ declare
   v_old_sponsor uuid;
   v_old_placement uuid;
   v_new_level integer;
+  v_new_order integer;
+  v_moved_upline boolean;
 begin
   select * into v_member from public.members where id = p_member_id for update;
   if not found then raise exception 'Member not found'; end if;
@@ -44,13 +48,25 @@ begin
     return jsonb_build_object('success', true, 'changed', false);
   end if;
 
-  -- Simple transfer: set referrer_id and placement_id to the new sponsor.
   v_new_level := case when p_new_sponsor_id is null then 0 else coalesce(v_new_sponsor.tree_level, 0) + 1 end;
+  -- True only when the member actually moves to a different placement upline.
+  v_moved_upline := v_old_placement is distinct from p_new_sponsor_id;
 
+  -- Assign the next available slot in the new upline (1-based, no duplicates).
+  -- When the upline is unchanged (sponsor-only edit) or detaching to root, keep the existing order.
+  if v_moved_upline and p_new_sponsor_id is not null then
+    select coalesce(max(placement_order), 0) + 1 into v_new_order
+    from public.members
+    where placement_id = p_new_sponsor_id and status = 'approved' and id <> p_member_id;
+  else
+    v_new_order := v_member.placement_order;
+  end if;
+
+  -- Move the member: set referrer_id, placement_id, and assign the proper slot order.
   update public.members
   set referrer_id = p_new_sponsor_id,
       placement_id = p_new_sponsor_id,
-      placement_order = case when placement_id is not distinct from p_new_sponsor_id then placement_order else null end,
+      placement_order = v_new_order,
       tree_level = v_new_level,
       updated_at = now()
   where id = p_member_id;
@@ -66,6 +82,18 @@ begin
   )
   update public.members m set tree_level = s.depth, updated_at = now()
   from subtree s where m.id = s.id and m.tree_level is distinct from s.depth;
+
+  -- Compact placement_order for the remaining children in the old upline:
+  -- renumber 1..N so no gap or duplicate slot is left behind.
+  if v_moved_upline and v_old_placement is not null then
+    with renumbered as (
+      select id, row_number() over (order by placement_order nulls last, created_date, id) as new_order
+      from public.members
+      where placement_id = v_old_placement and status = 'approved'
+    )
+    update public.members m set placement_order = r.new_order, updated_at = now()
+    from renumbered r where m.id = r.id and m.placement_order is distinct from r.new_order;
+  end if;
 
   -- Recount direct_downlines_count for old and new sponsors (and old/new placement parents).
   with affected(id) as (
