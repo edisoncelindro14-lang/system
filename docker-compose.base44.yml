@@ -32,6 +32,7 @@ services:
         psql -v ON_ERROR_STOP=1 -h db -U postgres -f /migrations/011_genealogy_position_order.sql &&
         psql -v ON_ERROR_STOP=1 -h db -U postgres -f /migrations/012_change_sponsor_function.sql &&
         psql -v ON_ERROR_STOP=1 -h db -U postgres -f /migrations/013_repair_sponsor_only_attachments.sql &&
+        psql -v ON_ERROR_STOP=1 -h db -U postgres -f /migrations/015_notifications.sql &&
         psql -h db -U postgres -c "NOTIFY pgrst, 'reload schema'" &&
         echo "Migrations complete"
 

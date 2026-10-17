@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wallet, ArrowRight, KeyRound, ChevronDown, ChevronUp, Ticket, Clock, Share2, Copy, Check, FileText, Users, ShoppingBag } from "lucide-react";
+import { Wallet, ArrowRight, KeyRound, ChevronDown, ChevronUp, Ticket, Clock, Share2, Copy, Check, FileText, Users, ShoppingBag, Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTable, useCurrentMember, createRecord } from "../lib/useData";
 import { supabase } from "../lib/supabase";
@@ -9,6 +9,7 @@ import { redeemCode } from "../lib/redeem";
 import { money, formatDate, withdrawalCharge, LEVEL_CONFIG, MAX_BONUS_LEVEL, maintenanceStatus } from "../lib/helpers";
 import { Button, Badge } from "./ui";
 import AnnouncementBanner from "./AnnouncementBanner";
+import NotificationsInbox from "./NotificationsInbox";
 
 export default function Dashboard() {
   const [showHistory, setShowHistory] = useState(false);
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const [redeemBusy, setRedeemBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [inboxOpen, setInboxOpen] = useState(false);
 
   const { data: members = [], isLoading } = useTable("members");
   const { data: allCodes = [] } = useTable("maintenance_codes");
@@ -23,6 +25,11 @@ export default function Dashboard() {
   const { data: conversionReqs = [] } = useTable("conversion_requests");
   const { data: settings = [] } = useTable("system_settings");
   const { currentMember } = useCurrentMember(members);
+  const { data: myNotifications = [], refetch: refetchNotifications } = useTable("notifications", {
+    filter: { member_id: currentMember?.id },
+    enabled: !!currentMember,
+  });
+  const unreadNotifications = myNotifications.filter(n => !n.read_at).length;
 
   const termsVisible = settings.find(s => s.setting_key === "tab_terms_visible")?.setting_value !== "false";
   const productConversionVisible = settings.find(s => s.setting_key === "tab_product_conversion_visible")?.setting_value !== "false";
@@ -180,6 +187,14 @@ export default function Dashboard() {
 
       {/* Top action buttons */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-2 flex justify-end gap-2 sm:gap-3">
+        {currentMember && (
+          <button onClick={() => setInboxOpen(true)} className="relative inline-flex items-center justify-center gap-1 bg-lime-500 hover:bg-lime-600 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm h-auto whitespace-nowrap shadow-sm transition-colors">
+            <Mail className="w-4 h-4 mr-1" /> Notification Mail
+            {unreadNotifications > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border-2 border-white">{unreadNotifications}</span>
+            )}
+          </button>
+        )}
         {termsVisible && (
           <a href="https://forms.gle/q4VPFaoRJPMc7i5A9" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1 bg-fuchsia-500 hover:bg-fuchsia-600 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm h-auto whitespace-nowrap shadow-sm transition-colors">
             <FileText className="w-4 h-4 mr-1" /> Membership Terms & Conditions
@@ -388,6 +403,8 @@ export default function Dashboard() {
           </div>
         </motion.div>
       )}
+
+      <NotificationsInbox memberId={currentMember?.id} open={inboxOpen} onClose={() => { setInboxOpen(false); refetchNotifications(); }} />
     </div>
   );
 }
