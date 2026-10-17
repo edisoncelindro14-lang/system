@@ -579,14 +579,14 @@ export default function Genealogy() {
         </div>
 
         {/* Right: Tree visualization */}
-        <div className="flex-1 min-h-[700px] flex flex-col bg-gradient-to-br from-gray-50 to-slate-100 rounded-2xl shadow-lg border border-gray-200">
+        <div className="flex-1 min-w-0 min-h-[700px] flex flex-col bg-gradient-to-br from-gray-50 to-slate-100 rounded-2xl shadow-lg border border-gray-200">
           {/* Zoom controls — sticky below the mobile header so they never scroll under it */}
-          <div className="sticky top-16 lg:static z-30 bg-white flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100 rounded-t-2xl">
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Activity className="w-4 h-4" />
-              <span>Network tree — <strong className="text-gray-700">{selected?.username || selected?.full_name || "—"}</strong></span>
+          <div className="sticky top-16 lg:static z-40 bg-white flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100 rounded-t-2xl">
+            <div className="flex items-center gap-2 text-sm text-gray-500 min-w-0">
+              <Activity className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">Network tree — <strong className="text-gray-700">{selected?.username || selected?.full_name || "—"}</strong></span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {history.length > 0 && (
                 <button onClick={goBack} className="h-11 px-3 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center gap-1 text-white shadow-lg hover:scale-105 active:scale-95 transition-all text-sm font-bold">
                   <ChevronLeft className="w-4 h-4" /> Back

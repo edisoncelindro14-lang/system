@@ -78,7 +78,7 @@ export default function Layout({ children, currentPageName }) {
   }
 
   return (
-    <div className="relative min-h-screen overflow-clip">
+    <div className="relative min-h-screen overflow-x-clip">
       <RiceFieldBackground />
       {/* Mobile header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-xl border-b border-emerald-200 z-50 px-4 flex items-center justify-between">
