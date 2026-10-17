@@ -8,6 +8,42 @@ export function placementParent(member) {
   return null;
 }
 
+// Follow the proposed upline using placement links only. Validate fresh database
+// data before a move, even when an external database still has an older RPC.
+export function assertPlacementMove(members, memberId, newParentId) {
+  const byId = new Map(members.map(member => [member.id, member]));
+  if (!byId.has(memberId)) throw new Error("Member not found");
+  const visited = new Set();
+  let parentId = newParentId;
+  while (parentId) {
+    if (parentId === memberId) {
+      throw new Error("Cannot move a member under themselves or their own downline. This would copy the old upline into a circular placement.");
+    }
+    if (visited.has(parentId)) {
+      throw new Error("The selected upline already has a circular placement. Repair its placement before moving members into it.");
+    }
+    visited.add(parentId);
+    const parent = byId.get(parentId);
+    if (!parent) throw new Error("The selected upline could not be verified. Refresh and try again.");
+    parentId = placementParent(parent);
+  }
+}
+
+// Return only the members in a corrupt loop, excluding members leading into it.
+export function placementCycle(members, startId) {
+  const byId = new Map(members.map(member => [member.id, member]));
+  const path = [];
+  const indexes = new Map();
+  let current = byId.get(startId);
+  while (current) {
+    if (indexes.has(current.id)) return path.slice(indexes.get(current.id));
+    indexes.set(current.id, path.length);
+    path.push(current.id);
+    current = byId.get(placementParent(current));
+  }
+  return [];
+}
+
 // Persisted slot order wins; older members have a stable chronological fallback.
 export function placementChildren(members, parentId) {
   return members.filter(member => placementParent(member) === parentId).sort((a, b) => {

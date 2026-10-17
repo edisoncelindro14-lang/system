@@ -25,7 +25,7 @@ GitHub/Vercel/Supabase rebuild of the Mamlakah Network System.
 
 Frontend deployments do **not** apply SQL migrations. For an existing Supabase database, run the current `supabase/migrations/012_change_sponsor_function.sql` in that project's SQL Editor; it includes the placement columns/index and installs the atomic sponsor-transfer function. It is safe to re-run and does not recreate member accounts. If old approved sponsor-only members are still missing, review and run `013_repair_sponsor_only_attachments.sql` separately. No RLS policies need to be disabled or broadened for this setup fix.
 
-The Admin sponsor editor and tree drag transfers both call `change_sponsor`, then read back the saved referral and placement links before showing success. Missing functions/columns now name the migration to apply; permission errors remain errors. Position swaps remain a separate operation.
+The Admin sponsor editor and tree drag transfers first read fresh placement links and reject self/descendant uplines or already-circular target groups before calling `change_sponsor`. This also protects the UI when an external project still runs an older RPC. They read back both saved links before showing success. A corrupt selected group shows a repair warning instead of rendering conflicting tree attachments. Run `014_break_placement_cycles.sql` to repair existing cycles (keeps `a` above `k` and `an` above `j`), and re-run the latest `012_change_sponsor_function.sql` for database-side protection; client checks do not replace database concurrency protection. Missing functions/columns name the migration to apply; permission errors remain errors. Position swaps remain a separate operation.
 
 ### Base44 sandbox database
 

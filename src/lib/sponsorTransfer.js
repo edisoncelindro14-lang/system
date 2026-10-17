@@ -1,3 +1,5 @@
+import { assertPlacementMove } from "./genealogyPositions.js";
+
 const SETUP_MESSAGE = "Genealogy database setup is outdated. Run supabase/migrations/012_change_sponsor_function.sql in the connected Supabase project's SQL Editor, then retry.";
 
 function transferError(error) {
@@ -11,6 +13,13 @@ function transferError(error) {
 // Read back the attachment so an outdated function cannot report a false success.
 export async function transferSponsor(client, memberId, newSponsorId) {
   const sponsorId = newSponsorId || null;
+  // Do not trust a cached tree or an older deployed change_sponsor function.
+  // Reject an ancestor-to-descendant move before the database can save a cycle.
+  const { data: placements, error: placementError } = await client.from("members")
+    .select("id, placement_id");
+  if (placementError) throw transferError(placementError);
+  assertPlacementMove(placements || [], memberId, sponsorId);
+
   const { data, error } = await client.rpc("change_sponsor", {
     p_member_id: memberId,
     p_new_sponsor_id: sponsorId,
