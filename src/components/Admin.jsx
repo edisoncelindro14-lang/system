@@ -5,7 +5,7 @@ import {
   Eye, EyeOff, DollarSign, Trash2, RotateCcw, UserCog, GitBranch, Search,
   Download, Copy, Crown, ArrowRight, ChevronDown, X as XIcon, FileText,
   Key, Clock, Lock, Pencil, User, Save, Upload, Image as ImageIcon,
-  UserPlus, ArrowLeft, ShoppingBag, Store, Mail,
+  UserPlus, ArrowLeft, ShoppingBag, Store, Mail, History,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTable, updateRecord, createRecord, deleteRecord } from "../lib/useData";
@@ -24,6 +24,7 @@ import AdminTransactionHistory from "./AdminTransactionHistory";
 import MaintenanceOverrideModal from "./MaintenanceOverrideModal";
 import EditBalanceModal from "./EditBalanceModal";
 import SendNotificationModal from "./SendNotificationModal";
+import SentNotificationsModal from "./SentNotificationsModal";
 
 export default function Admin() {
   const [tab, setTab] = useState("members");
@@ -66,6 +67,7 @@ export default function Admin() {
   const [overrideModal, setOverrideModal] = useState(null);
   const [balanceModal, setBalanceModal] = useState(null);
   const [notifyModal, setNotifyModal] = useState(null);
+  const [sentLogModal, setSentLogModal] = useState(null);
 
   const { data: members = [], refetch: refetchMembers } = useTable("members");
   const { data: codes = [], refetch: refetchCodes } = useTable("maintenance_codes");
@@ -724,6 +726,7 @@ export default function Admin() {
 
                     {(isSupAdmin || isOwner) && <button onClick={() => setBalanceModal(m)} className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors" title="Edit Balance"><Wallet className="w-4 h-4" /></button>}
                     <button onClick={() => setNotifyModal(m)} className="p-2 bg-lime-100 text-lime-700 rounded-lg hover:bg-lime-200 transition-colors" title="Send Notification"><Mail className="w-4 h-4" /></button>
+                    <button onClick={() => setSentLogModal(m)} className="p-2 bg-emerald-100 text-emerald-600 rounded-lg hover:bg-emerald-200 transition-colors" title="Sent Notifications"><History className="w-4 h-4" /></button>
                     {m.id !== currentMemberId && m.username !== "admin" && m.username !== "supadmin" && (
                       <button onClick={() => setConfirmDelete({ type: "member", id: m.id, name: m.full_name || m.username })} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors" title="Delete Account"><Trash2 className="w-4 h-4" /></button>
                     )}
@@ -1842,6 +1845,13 @@ export default function Admin() {
           member={notifyModal}
           onClose={() => setNotifyModal(null)}
           onSent={() => toast.success("Notification delivered")}
+        />
+      )}
+
+      {sentLogModal && (
+        <SentNotificationsModal
+          member={sentLogModal}
+          onClose={() => setSentLogModal(null)}
         />
       )}
     </div>
