@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { placementParent, placementChildren, planPositionSwap } from "./genealogyPositions.js";
+import { placementParent, placementChildren, placementCycle, assertPlacementMove, planPositionSwap } from "./genealogyPositions.js";
 
 function member(id, parent, level, extra = {}) {
   return { id, placement_id: parent, referrer_id: parent, tree_level: level, status: "approved", direct_downlines_count: 0, ...extra };
@@ -24,6 +24,31 @@ function validTree(members) {
     }
   }
 }
+
+test("any other existing member is allowed as a new upline", () => {
+  const tree = [member("root", null, 0), member("child", "root", 1), member("leaf", "child", 2)];
+  assert.throws(() => assertPlacementMove(tree, "root", "root"), /themselves/);
+  for (const target of ["child", "leaf", null]) assert.doesNotThrow(() => assertPlacementMove(tree, "root", target));
+  assert.throws(() => assertPlacementMove(tree, "root", "missing"), /New sponsor not found/);
+});
+
+test("existing loops remain identifiable without blocking a new placement", () => {
+  const tree = [member("a", "k", 2), member("k", "a", 3), member("an", "j", 0), member("j", "an", 1), member("leaf", "a", 4), member("other", null, 0)];
+  assert.deepEqual(placementCycle(tree, "leaf"), ["a", "k"], "exclude members merely leading into a loop");
+  assert.deepEqual(placementCycle(tree, "an"), ["an", "j"]);
+  assert.deepEqual(placementCycle(tree, "other"), []);
+  assert.doesNotThrow(() => assertPlacementMove(tree, "other", "k"));
+  assert.doesNotThrow(() => assertPlacementMove(tree, "a", null), "allow detaching out of a corrupt loop");
+});
+
+test("a moved username leaves its old placement, even with an unchanged referral sponsor", () => {
+  const tree = [member("old", null, 0), member("new", null, 0), member("moved", "old", 1), member("leaf", "moved", 2)];
+  assertPlacementMove(tree, "moved", "new");
+  const moved = tree.map(m => m.id === "moved" ? { ...m, placement_id: "new" } : m);
+  assert.deepEqual(placementChildren(moved, "old"), []);
+  assert.deepEqual(placementChildren(moved, "new").map(m => m.id), ["moved"]);
+  assert.deepEqual(placementChildren(moved, "moved").map(m => m.id), ["leaf"]);
+});
 
 const chain = [member("root", null, 0), member("ben", "root", 1), member("middle", "ben", 2), member("an", "middle", 3), member("leaf", "an", 4)];
 for (const [a, b] of [["ben", "an"], ["an", "ben"], ["ben", "middle"], ["middle", "ben"], ["root", "an"]]) {

@@ -1,8 +1,35 @@
+// Placement is determined by placement_id. A null placement_id means the member
+// is not in the tree (a lobby/orphan member) — do NOT fall back to referrer_id,
+// which would create phantom copies under the old sponsor after a move.
 // An approved level-zero member is a placement root, even when they retain a sponsor.
 export function placementParent(member) {
   if (member.placement_id) return member.placement_id;
   if (member.status === "approved" && member.tree_level === 0) return null;
-  return member.referrer_id || null;
+  return null;
+}
+
+// Any other member can become the new upline. Descendant targets are detached
+// from their previous placement automatically by the transfer, not rejected.
+export function assertPlacementMove(members, memberId, newParentId) {
+  const ids = new Set(members.map(member => member.id));
+  if (!ids.has(memberId)) throw new Error("Member not found");
+  if (memberId === newParentId) throw new Error("Cannot attach a member to themselves");
+  if (newParentId && !ids.has(newParentId)) throw new Error("New sponsor not found");
+}
+
+// Return only the members in a corrupt loop, excluding members leading into it.
+export function placementCycle(members, startId) {
+  const byId = new Map(members.map(member => [member.id, member]));
+  const path = [];
+  const indexes = new Map();
+  let current = byId.get(startId);
+  while (current) {
+    if (indexes.has(current.id)) return path.slice(indexes.get(current.id));
+    indexes.set(current.id, path.length);
+    path.push(current.id);
+    current = byId.get(placementParent(current));
+  }
+  return [];
 }
 
 // Persisted slot order wins; older members have a stable chronological fallback.

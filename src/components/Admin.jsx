@@ -34,6 +34,7 @@ export default function Admin() {
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemBusy, setRedeemBusy] = useState(false);
   const [sponsorModal, setSponsorModal] = useState(null);
+  const [savingSponsor, setSavingSponsor] = useState(false);
   const [profileMember, setProfileMember] = useState(null);
   const [profileSearch, setProfileSearch] = useState("");
   const [profileSearchOpen, setProfileSearchOpen] = useState(false);
@@ -290,7 +291,7 @@ export default function Admin() {
   function findDownline(memberId, visited = new Set()) {
     if (visited.has(memberId)) return [];
     visited.add(memberId);
-    const direct = members.filter(m => m.placement_id === memberId && m.status === "approved");
+    const direct = members.filter(m => placementParent(m) === memberId && m.status === "approved");
     return [...direct, ...direct.flatMap(d => findDownline(d.id, visited))];
   }
 
@@ -431,6 +432,8 @@ export default function Admin() {
 
   // Change a member's sponsor: sets referrer_id + placement_id to the new sponsor.
   async function changeSponsor(memberId, newSponsorId) {
+    if (savingSponsor) return;
+    setSavingSponsor(true);
     try {
       const data = await transferSponsor(supabase, memberId, newSponsorId);
       await refetchMembers();
@@ -438,6 +441,8 @@ export default function Admin() {
       setSponsorModal(null);
     } catch (err) {
       toast.error(err?.message || "Failed to change sponsor");
+    } finally {
+      setSavingSponsor(false);
     }
   }
 
@@ -1676,7 +1681,7 @@ export default function Admin() {
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-sm text-gray-500">Current sponsor: {members.find(m => m.id === sponsorModal.member?.referrer_id)?.username || "None (root)"}</p>
-                <p className="text-sm text-gray-500">Transfers the member to the new sponsor — updates referral, genealogy placement, tree levels, and downline counts.</p>
+                <p className="text-sm text-gray-500">Moves the member and their downline to the selected sponsor and removes the old placement. If the selected sponsor is currently below this member, it is detached first automatically.</p>
                 <div>
                   <Label>Select New Sponsor</Label>
                   <select value={sponsorModal.newSponsorId} onChange={e => setSponsorModal({ ...sponsorModal, newSponsorId: e.target.value })}
@@ -1689,8 +1694,8 @@ export default function Admin() {
                 </div>
               </div>
               <div className="p-6 border-t border-gray-100 flex gap-3">
-                <Button onClick={() => changeSponsor(sponsorModal.member.id, sponsorModal.newSponsorId)} className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white">Update Sponsor</Button>
-                <Button onClick={() => setSponsorModal(null)} variant="outline" className="flex-1">Cancel</Button>
+                <Button onClick={() => changeSponsor(sponsorModal.member.id, sponsorModal.newSponsorId)} disabled={savingSponsor} className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white">{savingSponsor ? "Updating..." : "Update Sponsor"}</Button>
+                <Button onClick={() => setSponsorModal(null)} disabled={savingSponsor} variant="outline" className="flex-1">Cancel</Button>
               </div>
           </div>
         </div>

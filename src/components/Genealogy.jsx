@@ -176,7 +176,7 @@ export default function Genealogy() {
     // Cycle guard — prevents infinite recursion if data is inconsistent
     if (ancestors.includes(member.id)) return null;
     const nextAncestors = [...ancestors, member.id];
-    const downlines = placementChildren(approvedMembers, member.id);
+    const downlines = placementChildren(approvedMembers, member.id).filter(child => !nextAncestors.includes(child.id));
     const isRoot = level === 0;
     const status = maintenanceStatus(member, codes);
     const isActive = status.isGreen;
@@ -720,7 +720,7 @@ export default function Genealogy() {
               <button onClick={() => setMoveConfirm(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <p className="text-sm text-gray-500 mb-4">
-              This will move <strong>@{moveConfirm.source.username}</strong> and their entire downline under <strong>@{moveConfirm.target.username}</strong>. Tree levels will be recalculated automatically — no slots duplicated.
+              This will move <strong>@{moveConfirm.source.username}</strong> and their downline under <strong>@{moveConfirm.target.username}</strong> and remove the old placement. If the new sponsor is currently below this member, it will be detached first automatically — no copies left behind.
             </p>
             <div className="flex gap-3">
               <Button onClick={handleMoveToSponsor} disabled={placing} className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white">Confirm Move</Button>
