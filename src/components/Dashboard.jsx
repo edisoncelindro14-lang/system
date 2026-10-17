@@ -25,7 +25,7 @@ export default function Dashboard() {
   const { data: conversionReqs = [] } = useTable("conversion_requests");
   const { data: settings = [] } = useTable("system_settings");
   const { currentMember } = useCurrentMember(members);
-  const { data: myNotifications = [] } = useTable("notifications", {
+  const { data: myNotifications = [], refetch: refetchNotifications } = useTable("notifications", {
     filter: { member_id: currentMember?.id },
     enabled: !!currentMember,
   });
@@ -404,7 +404,7 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      <NotificationsInbox memberId={currentMember?.id} open={inboxOpen} onClose={() => setInboxOpen(false)} />
+      <NotificationsInbox memberId={currentMember?.id} open={inboxOpen} onClose={() => { setInboxOpen(false); refetchNotifications(); }} />
     </div>
   );
 }
