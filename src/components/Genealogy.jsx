@@ -8,7 +8,7 @@ import { maintenanceStatus, formatTime } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
 import { supabase } from "../lib/supabase";
 import { transferSponsor } from "../lib/sponsorTransfer";
-import { placementParent, placementChildren, placementCycle, planPositionSwap } from "../lib/genealogyPositions";
+import { placementParent, placementChildren, planPositionSwap } from "../lib/genealogyPositions";
 import toast from "react-hot-toast";
 
 export default function Genealogy() {
@@ -170,14 +170,13 @@ export default function Genealogy() {
     ).slice(0, 50);
   }, [swapSource, swapSearch, approvedMembers]);
 
-  const selectedCycle = useMemo(() => placementCycle(members, selected?.id), [members, selected?.id]);
   const maxDepth = isSuperAdmin ? Infinity : 5;
 
   const TreeNode = useCallback(function TreeNode({ member, level = 0, ancestors = [] }) {
     // Cycle guard — prevents infinite recursion if data is inconsistent
     if (ancestors.includes(member.id)) return null;
     const nextAncestors = [...ancestors, member.id];
-    const downlines = placementChildren(approvedMembers, member.id);
+    const downlines = placementChildren(approvedMembers, member.id).filter(child => !nextAncestors.includes(child.id));
     const isRoot = level === 0;
     const status = maintenanceStatus(member, codes);
     const isActive = status.isGreen;
@@ -612,15 +611,7 @@ export default function Genealogy() {
             onPointerLeave={handlePointerUp}
           >
             <div ref={treeRef} style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom / 100})`, transformOrigin: 'top center', transition: isDragging ? 'none' : 'transform 0.15s ease-out', willChange: 'transform' }}>
-              {selectedCycle.length > 0 ? (
-                <div role="alert" className="mx-auto max-w-lg rounded-2xl border border-amber-300 bg-amber-50 p-6 text-amber-950">
-                  <h2 className="font-bold mb-2">Placement repair required</h2>
-                  <p className="text-sm mb-2">A circular placement connects {selectedCycle.map(id => `@${members.find(member => member.id === id)?.username || id}`).join(" → ")}. This group is hidden so members are not shown under conflicting uplines.</p>
-                  <p className="text-sm">{isSuperAdmin
-                    ? "Apply 014_break_placement_cycles.sql in the connected Supabase project, then refresh. Apply the latest 012_change_sponsor_function.sql to protect database moves too."
-                    : "Please ask an administrator to repair these placement links."}</p>
-                </div>
-              ) : selected ? <TreeNode member={selected} /> : (
+              {selected ? <TreeNode member={selected} /> : (
                 <div className="flex flex-col items-center justify-center py-16 text-gray-400">
                   <Users className="w-12 h-12 mb-3 text-gray-300" />
                   <p className="text-sm">No genealogy data available</p>
@@ -729,7 +720,7 @@ export default function Genealogy() {
               <button onClick={() => setMoveConfirm(null)} className="p-1 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <p className="text-sm text-gray-500 mb-4">
-              This will move <strong>@{moveConfirm.source.username}</strong> and their entire downline under <strong>@{moveConfirm.target.username}</strong>. Tree levels will be recalculated automatically — no slots duplicated.
+              This will move <strong>@{moveConfirm.source.username}</strong> and their downline under <strong>@{moveConfirm.target.username}</strong> and remove the old placement. If the new sponsor is currently below this member, it will be detached first automatically — no copies left behind.
             </p>
             <div className="flex gap-3">
               <Button onClick={handleMoveToSponsor} disabled={placing} className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 text-white">Confirm Move</Button>

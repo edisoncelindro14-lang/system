@@ -25,21 +25,19 @@ function validTree(members) {
   }
 }
 
-test("moves reject self, direct-child and deep-descendant uplines before writing", () => {
+test("any other existing member is allowed as a new upline", () => {
   const tree = [member("root", null, 0), member("child", "root", 1), member("leaf", "child", 2)];
-  for (const target of ["root", "child", "leaf"]) {
-    assert.throws(() => assertPlacementMove(tree, "root", target), /own downline/);
-  }
-  assert.doesNotThrow(() => assertPlacementMove(tree, "leaf", "root"));
-  assert.doesNotThrow(() => assertPlacementMove(tree, "root", null));
+  assert.throws(() => assertPlacementMove(tree, "root", "root"), /themselves/);
+  for (const target of ["child", "leaf", null]) assert.doesNotThrow(() => assertPlacementMove(tree, "root", target));
+  assert.throws(() => assertPlacementMove(tree, "root", "missing"), /New sponsor not found/);
 });
 
-test("existing a-k and an-j loops cannot receive more members", () => {
+test("existing loops remain identifiable without blocking a new placement", () => {
   const tree = [member("a", "k", 2), member("k", "a", 3), member("an", "j", 0), member("j", "an", 1), member("leaf", "a", 4), member("other", null, 0)];
   assert.deepEqual(placementCycle(tree, "leaf"), ["a", "k"], "exclude members merely leading into a loop");
   assert.deepEqual(placementCycle(tree, "an"), ["an", "j"]);
   assert.deepEqual(placementCycle(tree, "other"), []);
-  assert.throws(() => assertPlacementMove(tree, "other", "k"), /already has a circular/);
+  assert.doesNotThrow(() => assertPlacementMove(tree, "other", "k"));
   assert.doesNotThrow(() => assertPlacementMove(tree, "a", null), "allow detaching out of a corrupt loop");
 });
 

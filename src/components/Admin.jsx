@@ -1681,7 +1681,7 @@ export default function Admin() {
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-sm text-gray-500">Current sponsor: {members.find(m => m.id === sponsorModal.member?.referrer_id)?.username || "None (root)"}</p>
-                <p className="text-sm text-gray-500">Transfers the member to the new sponsor — updates referral, genealogy placement, tree levels, and downline counts.</p>
+                <p className="text-sm text-gray-500">Moves the member and their downline to the selected sponsor and removes the old placement. If the selected sponsor is currently below this member, it is detached first automatically.</p>
                 <div>
                   <Label>Select New Sponsor</Label>
                   <select value={sponsorModal.newSponsorId} onChange={e => setSponsorModal({ ...sponsorModal, newSponsorId: e.target.value })}

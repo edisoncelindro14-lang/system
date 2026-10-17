@@ -8,25 +8,13 @@ export function placementParent(member) {
   return null;
 }
 
-// Follow the proposed upline using placement links only. Validate fresh database
-// data before a move, even when an external database still has an older RPC.
+// Any other member can become the new upline. Descendant targets are detached
+// from their previous placement automatically by the transfer, not rejected.
 export function assertPlacementMove(members, memberId, newParentId) {
-  const byId = new Map(members.map(member => [member.id, member]));
-  if (!byId.has(memberId)) throw new Error("Member not found");
-  const visited = new Set();
-  let parentId = newParentId;
-  while (parentId) {
-    if (parentId === memberId) {
-      throw new Error("Cannot move a member under themselves or their own downline. This would copy the old upline into a circular placement.");
-    }
-    if (visited.has(parentId)) {
-      throw new Error("The selected upline already has a circular placement. Repair its placement before moving members into it.");
-    }
-    visited.add(parentId);
-    const parent = byId.get(parentId);
-    if (!parent) throw new Error("The selected upline could not be verified. Refresh and try again.");
-    parentId = placementParent(parent);
-  }
+  const ids = new Set(members.map(member => member.id));
+  if (!ids.has(memberId)) throw new Error("Member not found");
+  if (memberId === newParentId) throw new Error("Cannot attach a member to themselves");
+  if (newParentId && !ids.has(newParentId)) throw new Error("New sponsor not found");
 }
 
 // Return only the members in a corrupt loop, excluding members leading into it.
