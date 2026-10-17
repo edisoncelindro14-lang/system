@@ -1,7 +1,7 @@
 -- Sponsor transfer: set referrer_id + placement_id to the new sponsor, move the
 -- slot to the new upline (proper placement_order), and compact remaining slots in
 -- the old upline so no duplicate/gap is left behind.
--- No cycle restrictions, no position rotation.
+-- Cycle-safe: rejects moves that would create a circular placement link.
 -- Re-run this migration on the Supabase project the frontend actually uses.
 -- Include the placement prerequisites: a frontend deploy does not install SQL.
 begin;
@@ -24,6 +24,7 @@ declare
   v_new_level integer;
   v_new_order integer;
   v_moved_upline boolean;
+  v_is_descendant boolean;
 begin
   select * into v_member from public.members where id = p_member_id for update;
   if not found then raise exception 'Member not found'; end if;
@@ -34,6 +35,22 @@ begin
   if p_new_sponsor_id is not null then
     select * into v_new_sponsor from public.members where id = p_new_sponsor_id for update;
     if not found then raise exception 'New sponsor not found'; end if;
+
+    -- Cycle check: reject if the new sponsor is already a descendant of the member
+    -- (following placement_id links). Moving a member under their own downline
+    -- would create a circular link, causing duplicates across genealogy groups.
+    with recursive descendants(id, path) as (
+      select p_member_id, array[p_member_id]
+      union
+      select m.id, d.path || m.id
+      from public.members m join descendants d on m.placement_id = d.id
+      where not m.id = any(d.path)
+    )
+    select exists (select 1 from descendants where id = p_new_sponsor_id) into v_is_descendant;
+
+    if v_is_descendant then
+      raise exception 'Cannot move a member under their own downline — this would create a cycle. Move the sponsor out of the downline first.';
+    end if;
   end if;
 
   v_old_sponsor := v_member.referrer_id;
