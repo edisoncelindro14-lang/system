@@ -1,16 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Smartphone, Copy, Upload, Check } from "lucide-react";
+import { Smartphone, Copy, Upload, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTable } from "../lib/useData";
 import { getSessionMemberId } from "../lib/auth";
 import { supabase } from "../lib/supabase";
+
+const LOGO_URL = "https://media.base44.com/images/public/6ad0559cb2cdb34b8de882bb/05c8060f1_Firefly3.png";
 
 export function GCashButton() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pos, setPos] = useState(null);
-  const [popupAbove, setPopupAbove] = useState(false);
   const memberId = getSessionMemberId();
   const { data: gcashInfo = [] } = useTable("gcash_info");
   const active = gcashInfo.find(g => g.is_active) || gcashInfo[0];
@@ -28,12 +29,6 @@ export function GCashButton() {
       setPos({ x: window.innerWidth - (isMobile ? 150 : 180), y: window.innerHeight - (isMobile ? 80 : 100) });
     }
   }, [pos]);
-
-  // Keep popup on the correct side of the button
-  useEffect(() => {
-    if (!open || !pos) return;
-    setPopupAbove(pos.y > window.innerHeight * 0.5);
-  }, [open, pos]);
 
   // Window-level drag listeners (must be before any early return to respect Rules of Hooks)
   useEffect(() => {
@@ -145,42 +140,50 @@ export function GCashButton() {
         <Smartphone className="w-5 h-5 lg:w-6 lg:h-6" />
         <span className="font-bold text-sm tracking-wide">GCASH<span className="hidden lg:inline"> PAYMENT</span></span>
       </button>
-      {open && pos && (
-        <div
-          className="fixed z-50 w-80 max-w-[calc(100vw-1rem)] bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
-          style={{
-            left: Math.max(8, Math.min(window.innerWidth - 336, pos.x)),
-            ...(popupAbove
-              ? { bottom: window.innerHeight - pos.y + 8, top: "auto" }
-              : { top: pos.y + 56, bottom: "auto" }),
-          }}
-        >
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-white/20 rounded-lg">
-                <Smartphone className="w-5 h-5" />
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setOpen(false)}>
+          <div
+            className="relative w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden text-white"
+            style={{ background: "#2563eb" }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg leading-tight">Payment via GCash</h3>
+                  <p className="text-xs text-white/80">Send payment here, then upload receipt.</p>
+                </div>
               </div>
-              <span className="font-bold">GCash Payment</span>
+              <button onClick={() => setOpen(false)} className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button onClick={() => setOpen(false)} className="text-white/80 hover:text-white">✕</button>
-          </div>
-          <div className="p-4 space-y-4">
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Send payment to:</p>
-              <div className="flex items-center gap-2">
-                <p className="flex-1 font-bold text-gray-900 text-lg">{active.gcash_number}</p>
-                <button onClick={copyNumber} className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100">
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">{active.gcash_name}</p>
+
+            {/* Main content */}
+            <div className="px-5 pb-5 flex flex-col items-center text-center">
+              <img src={LOGO_URL} alt="Zistem" className="w-24 h-24 rounded-2xl object-cover border-2 border-white/40 mb-4" />
+              <p className="text-xs text-white/80 mb-1">GCash Number</p>
+              <p className="text-2xl font-extrabold tracking-wide">{active.gcash_number}</p>
+              <p className="text-sm text-white/90 mt-1">GCash Name: {active.gcash_name}</p>
+
+              <button onClick={copyNumber} className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-blue-900 font-semibold text-sm shadow hover:bg-blue-50 transition-colors">
+                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copied ? "Copied!" : "Click Here to Copy Number"}
+              </button>
+
+              <p className="text-xs text-white/80 mt-4">And open your GCash App to paste the GCash Number there</p>
+
+              <label className="block w-full mt-2">
+                <input type="file" accept="image/*" onChange={uploadReceipt} className="hidden" />
+                <div className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-white shadow-lg cursor-pointer transition-all" style={{ background: "#1e3a8a" }}>
+                  <Upload className="w-4 h-4" /> {uploading ? "Uploading..." : "Upload Receipt"}
+                </div>
+              </label>
             </div>
-            <label className="block">
-              <input type="file" accept="image/*" onChange={uploadReceipt} className="hidden" />
-              <div className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 cursor-pointer transition-all">
-                <Upload className="w-4 h-4" /> {uploading ? "Uploading..." : "Upload Receipt"}
-              </div>
-            </label>
           </div>
         </div>
       )}
