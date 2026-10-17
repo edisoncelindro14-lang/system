@@ -29,19 +29,16 @@ where m.placement_id is null
     select 1 from descendant d where d.start = m.id and d.node = m.referrer_id
   );
 
--- Recompute tree_level for every member from the placement roots down, using
--- the same placementParent() rule as the frontend (an approved level-zero member
--- with no placement_id is a root).
+-- Recompute tree_level for every member from the placement roots down.
+-- placement_id only — no referrer_id fallback (matches frontend placementParent).
 with recursive roots(id) as (
   select m.id from public.members m
-  where coalesce(m.placement_id,
-    case when m.status = 'approved' and m.tree_level = 0 then null else m.referrer_id end) is null
+  where m.placement_id is null
 ), levels(id, lvl) as (
   select id, 0 from roots
   union
   select c.id, l.lvl + 1 from public.members c join levels l
-    on coalesce(c.placement_id,
-      case when c.status = 'approved' and c.tree_level = 0 then null else c.referrer_id end) = l.id
+    on c.placement_id = l.id
 )
 update public.members m set tree_level = l.lvl, updated_at = now()
 from levels l where m.id = l.id and m.tree_level is distinct from l.lvl;
@@ -49,9 +46,8 @@ from levels l where m.id = l.id and m.tree_level is distinct from l.lvl;
 -- Recompute direct_downlines_count from approved placement children so the
 -- stored counter matches the tree after repair.
 with counts(parent_id, cnt) as (
-  select coalesce(placement_id,
-      case when status = 'approved' and tree_level = 0 then null else referrer_id end), count(*)::int
-  from public.members where status = 'approved'
+  select placement_id, count(*)::int
+  from public.members where status = 'approved' and placement_id is not null
   group by 1
 )
 update public.members m set direct_downlines_count = coalesce(c.cnt, 0), updated_at = now()

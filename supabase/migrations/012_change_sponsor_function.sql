@@ -37,9 +37,8 @@ begin
   end if;
 
   v_old_sponsor := v_member.referrer_id;
-  -- Match placementParent() in the frontend, including explicit level-zero roots.
-  v_old_placement := coalesce(v_member.placement_id,
-    case when v_member.status = 'approved' and v_member.tree_level = 0 then null else v_member.referrer_id end);
+  -- Match placementParent() in the frontend: placement_id only, no referrer fallback.
+  v_old_placement := v_member.placement_id;
 
   -- No-op if nothing changed
   if p_new_sponsor_id is not distinct from v_old_sponsor
@@ -76,8 +75,7 @@ begin
     select p_member_id, v_new_level, array[p_member_id]
     union all
     select m.id, s.depth + 1, s.path || m.id
-    from public.members m join subtree s on coalesce(m.placement_id,
-      case when m.status = 'approved' and m.tree_level = 0 then null else m.referrer_id end) = s.id
+    from public.members m join subtree s on m.placement_id = s.id
     where not m.id = any(s.path)
   )
   update public.members m set tree_level = s.depth, updated_at = now()
@@ -101,9 +99,8 @@ begin
       p_new_sponsor_id]) as ids(id)
     where id is not null
   ), counts as (
-    select coalesce(placement_id,
-      case when status = 'approved' and tree_level = 0 then null else referrer_id end) as parent_id, count(*)::int as cnt
-    from public.members where status = 'approved'
+    select placement_id as parent_id, count(*)::int as cnt
+    from public.members where status = 'approved' and placement_id is not null
     group by 1
   )
   update public.members m set direct_downlines_count = coalesce(c.cnt, 0), updated_at = now()

@@ -290,7 +290,7 @@ export default function Admin() {
   function findDownline(memberId, visited = new Set()) {
     if (visited.has(memberId)) return [];
     visited.add(memberId);
-    const direct = members.filter(m => m.placement_id === memberId && m.status === "approved");
+    const direct = members.filter(m => placementParent(m) === memberId && m.status === "approved");
     return [...direct, ...direct.flatMap(d => findDownline(d.id, visited))];
   }
 

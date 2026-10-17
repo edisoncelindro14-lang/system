@@ -1,8 +1,11 @@
+// Placement is determined by placement_id. A null placement_id means the member
+// is not in the tree (a lobby/orphan member) — do NOT fall back to referrer_id,
+// which would create phantom copies under the old sponsor after a move.
 // An approved level-zero member is a placement root, even when they retain a sponsor.
 export function placementParent(member) {
   if (member.placement_id) return member.placement_id;
   if (member.status === "approved" && member.tree_level === 0) return null;
-  return member.referrer_id || null;
+  return null;
 }
 
 // Persisted slot order wins; older members have a stable chronological fallback.
