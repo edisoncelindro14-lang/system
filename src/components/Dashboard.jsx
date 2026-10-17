@@ -188,7 +188,7 @@ export default function Dashboard() {
       {/* Top action buttons */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-2 flex justify-end gap-2 sm:gap-3">
         {currentMember && (
-          <button onClick={() => setInboxOpen(true)} className="relative inline-flex items-center justify-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm h-auto whitespace-nowrap shadow-sm transition-colors">
+          <button onClick={() => setInboxOpen(true)} className="relative inline-flex items-center justify-center gap-1 bg-lime-500 hover:bg-lime-600 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm h-auto whitespace-nowrap shadow-sm transition-colors">
             <Mail className="w-4 h-4 mr-1" /> Notification Mail
             {unreadNotifications > 0 && (
               <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center border-2 border-white">{unreadNotifications}</span>
