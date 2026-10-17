@@ -21,5 +21,6 @@ grant select, insert, update, delete on public.notifications to anon;
 -- RLS: Supabase enables RLS by default on new tables. Without a policy,
 -- all inserts are blocked with "new row violates row-level security policy".
 alter table public.notifications enable row level security;
+drop policy if exists "allow_all_notifications" on public.notifications;
 create policy "allow_all_notifications" on public.notifications
   for all using (true) with check (true);

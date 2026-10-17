@@ -110,7 +110,7 @@ services:
       - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS
     env_file:
       - ./.env.base44-defaults
-      # TEMPORARILY disabled for verification: - /run/base44/app.env
+      - /run/base44/app.env
     command: ["sh", "-ec", "npm ci --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0"]
     restart: on-failure
     healthcheck:
