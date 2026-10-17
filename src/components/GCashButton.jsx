@@ -21,6 +21,7 @@ export function GCashButton() {
   const dragStart = useRef(null);
   const posStart = useRef(null);
   const moved = useRef(false);
+  const pointerType = useRef("mouse");
 
   // Default position: bottom-right corner
   useEffect(() => {
@@ -36,7 +37,10 @@ export function GCashButton() {
       if (!dragging.current || !posStart.current) return;
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) moved.current = true;
+      // Touch taps naturally drift more than mouse clicks, so use a larger
+      // threshold on touch devices so taps still register as clicks.
+      const threshold = pointerType.current === "touch" ? 24 : 10;
+      if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) moved.current = true;
       const btn = btnRef.current;
       const bw = btn?.offsetWidth || 140;
       const bh = btn?.offsetHeight || 48;
@@ -127,6 +131,7 @@ export function GCashButton() {
 
   const onPointerDown = (e) => {
     e.preventDefault();
+    pointerType.current = e.pointerType || "mouse";
     dragging.current = true;
     moved.current = false;
     dragStart.current = { x: e.clientX, y: e.clientY };
