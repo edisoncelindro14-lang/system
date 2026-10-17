@@ -580,8 +580,8 @@ export default function Genealogy() {
 
         {/* Right: Tree visualization */}
         <div className="flex-1 min-w-0 min-h-[700px] flex flex-col bg-gradient-to-br from-gray-50 to-slate-100 rounded-2xl shadow-lg border border-gray-200">
-          {/* Zoom controls — sticky below the mobile header so they never scroll under it */}
-          <div className="sticky lg:static z-40 bg-yellow-400 flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100 rounded-t-2xl" style={{ top: 'calc(4rem + env(safe-area-inset-top))' }}>
+          {/* Zoom controls — fixed below the mobile header so they never scroll away */}
+          <div className="fixed lg:static left-3 right-3 z-40 bg-yellow-100 flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100 rounded-t-2xl shadow-md lg:shadow-none" style={{ top: 'calc(4rem + env(safe-area-inset-top))' }}>
             <div className="flex items-center gap-2 text-sm text-gray-500 min-w-0">
               <Activity className="w-4 h-4 flex-shrink-0" />
               <span className="truncate">Network tree — <strong className="text-gray-700">{selected?.username || selected?.full_name || "—"}</strong></span>
@@ -603,7 +603,7 @@ export default function Genealogy() {
             </div>
           </div>
           <div
-            className="flex-1 overflow-hidden p-4 cursor-grab active:cursor-grabbing touch-none select-none"
+            className="flex-1 overflow-hidden p-4 pt-20 lg:pt-4 cursor-grab active:cursor-grabbing touch-none select-none"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
