@@ -207,7 +207,7 @@ export default function Register() {
             <button
               type="button"
               className="w-full h-[52px] rounded-xl text-base font-medium shadow-lg hover:brightness-105 transition"
-              style={{ background: GOLD_GRADIENT, color: "#4a3410" }}
+              style={{ background: "#c026d3", color: "#ffffff" }}
             >
               Membership Terms &amp; Conditions
             </button>
