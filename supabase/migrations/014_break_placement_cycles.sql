@@ -5,12 +5,16 @@
 -- still corrupt: each member in the cycle appears as a child in the other's
 -- tree, producing the "copy from a different upline genealogy group" symptom.
 --
--- This migration detects cycles and breaks them by detaching the YOUNGEST node
--- in each cycle (the one with the most recent created_date) to a root
--- (placement_id = null, tree_level = 0). The detached member keeps its sponsor
--- (referrer_id) but is no longer placed under anyone, so it stops appearing as a
--- duplicate in the other group's tree. Run the UPDATED 012_change_sponsor_function.sql
--- on external Supabase first so future moves cannot recreate cycles.
+-- This migration detects cycles and breaks them. For the two known cycles the
+-- user specified which node to keep "above" (as root):
+--   1. "a above k"  → detach a  (a becomes root, k stays under a)
+--   2. "an above j" → detach an (an becomes root, j stays under an)
+-- For any other cycles not covered by the explicit list, the youngest node
+-- (most recent created_date) is detached as a fallback.
+-- The detached member keeps its sponsor (referrer_id) but is no longer placed
+-- under anyone, so it stops appearing as a duplicate in the other group's tree.
+-- Run the UPDATED 012_change_sponsor_function.sql on external Supabase first
+-- so future moves cannot recreate cycles.
 -- Local Compose applies this automatically; re-run on external Supabase after deploying.
 -- Idempotent: only acts on members that are part of a cycle.
 
@@ -46,22 +50,44 @@ with recursive
     from walk w
     where w.cycle_member = w.start_id
   ),
-  -- For each cycle, pick the node to detach: the one with the most recent
-  -- created_date (the newest addition to the cycle). Breaking one link
-  -- dissolves the entire cycle.
-  detach_target(id) as (
+  -- User-specified detach priorities for the two known cycles.
+  -- "a above k"  → detach a  (a becomes root, k stays under a)
+  -- "an above j" → detach an (an becomes root, j stays under an)
+  explicit_detach(id) as (
+    select m.id
+    from public.members m
+    where m.username in ('a', 'an')
+      and m.id in (select id from cycle_nodes)
+  ),
+  -- Cycle nodes already handled by the explicit list: the detached node
+  -- itself plus the other node in its 2-node cycle (the one it points to).
+  handled_cycle_nodes(id) as (
+    select id from explicit_detach
+    union
+    select m.placement_id
+    from public.members m
+    where m.id in (select id from explicit_detach)
+      and m.placement_id in (select id from cycle_nodes)
+  ),
+  -- For any remaining cycles not covered above, fall back to the youngest
+  -- node (most recent created_date). Breaking one link dissolves the cycle.
+  fallback_detach(id) as (
     select c.id
     from cycle_nodes c
     join public.members m on m.id = c.id
-    where m.created_date = (
-      select max(m2.created_date)
-      from public.members m2
-      where m2.id in (select id from cycle_nodes)
-    )
-    -- Only detach if this node's placement_id points to another cycle node
-    -- (ensures we break the cycle link, not a non-cycle link).
-    and m.placement_id in (select id from cycle_nodes)
-    limit 1
+    where c.id not in (select id from handled_cycle_nodes)
+      and m.placement_id in (select id from cycle_nodes)
+      and m.created_date = (
+        select max(m2.created_date)
+        from public.members m2
+        where m2.id in (select id from cycle_nodes)
+          and m2.id not in (select id from handled_cycle_nodes)
+      )
+  ),
+  detach_target(id) as (
+    select id from explicit_detach
+    union
+    select id from fallback_detach
   )
 update public.members m
 set placement_id = null,
