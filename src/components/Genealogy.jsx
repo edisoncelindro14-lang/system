@@ -410,7 +410,7 @@ export default function Genealogy() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <div className="animate-pulse text-gray-500">Loading genealogy...</div>
       </div>
     );
@@ -418,7 +418,7 @@ export default function Genealogy() {
 
   if (!currentMember) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="min-h-dvh flex items-center justify-center p-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-md">
           <div className="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl mx-auto mb-6 flex items-center justify-center">
             <GitBranch className="w-10 h-10 text-white" />
@@ -581,7 +581,7 @@ export default function Genealogy() {
         {/* Right: Tree visualization */}
         <div className="flex-1 min-w-0 min-h-[700px] flex flex-col bg-gradient-to-br from-gray-50 to-slate-100 rounded-2xl shadow-lg border border-gray-200">
           {/* Zoom controls — sticky below the mobile header so they never scroll under it */}
-          <div className="sticky top-16 lg:static z-40 bg-white flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100 rounded-t-2xl">
+          <div className="sticky lg:static z-40 bg-white flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100 rounded-t-2xl" style={{ top: 'calc(4rem + env(safe-area-inset-top))' }}>
             <div className="flex items-center gap-2 text-sm text-gray-500 min-w-0">
               <Activity className="w-4 h-4 flex-shrink-0" />
               <span className="truncate">Network tree — <strong className="text-gray-700">{selected?.username || selected?.full_name || "—"}</strong></span>

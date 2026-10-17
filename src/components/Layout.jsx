@@ -78,10 +78,10 @@ export default function Layout({ children, currentPageName }) {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-clip">
+    <div className="relative min-h-dvh overflow-x-clip">
       <RiceFieldBackground />
       {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-xl border-b border-emerald-200 z-50 px-4 flex items-center justify-between">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/70 backdrop-blur-xl border-b border-emerald-200 z-50 px-4 flex items-center justify-between" style={{ paddingTop: 'env(safe-area-inset-top)', height: 'calc(4rem + env(safe-area-inset-top))' }}>
         <div className="flex items-center gap-3">
           <img src={LOGO_URL} alt="Zistem" className="w-10 h-10 rounded-xl object-cover" />
           <span className="font-bold text-xl text-gray-900">Zistem</span>
@@ -177,7 +177,7 @@ export default function Layout({ children, currentPageName }) {
       </AnimatePresence>
 
       <MaintenanceProvider>
-        <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">
+        <main className="lg:ml-64 lg:pt-0 min-h-dvh" style={{ paddingTop: 'calc(4rem + env(safe-area-inset-top))' }}>
           <MaintenanceBanner />
           {children}
           <GCashButton />
