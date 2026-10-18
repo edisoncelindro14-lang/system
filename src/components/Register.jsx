@@ -66,7 +66,13 @@ export default function Register() {
     }
     setBusy(true);
     try {
-      const { data: existing } = await supabase.from("members").select("id").ilike("username", form.username.trim()).limit(1);
+      const username = form.username.trim();
+      if (!username) {
+        toast.error("Username is required");
+        setBusy(false);
+        return;
+      }
+      const { data: existing } = await supabase.from("members").select("id").ilike("username", username).limit(1);
       if (existing?.length > 0) {
         toast.error("Username already taken");
         setBusy(false);
@@ -92,9 +98,9 @@ export default function Register() {
       const { data: newMember, error } = await supabase
         .from("members")
         .insert({
-          username: form.username,
+          username: username,
           password: form.password,
-          full_name: form.username,
+          full_name: username,
           referral_code: generateReferralCode(),
           referrer_id: referrerId,
           status: referrerId && !autoPlace ? "pending" : "approved",

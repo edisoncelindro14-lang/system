@@ -43,7 +43,8 @@ export default function Login() {
 
   async function submit(e) {
     e.preventDefault();
-    if (!form.username || !form.password) {
+    const username = form.username.trim();
+    if (!username || !form.password) {
       toast.error("Please enter username and password");
       return;
     }
@@ -52,7 +53,7 @@ export default function Login() {
       const { data: members, error } = await supabase
         .from("members")
         .select("*")
-        .eq("username", form.username)
+        .eq("username", username)
         .limit(1);
       if (error) throw error;
       const member = members?.[0];
@@ -61,7 +62,7 @@ export default function Login() {
         setBusy(false);
         return;
       }
-      saveLogin(form.username, form.password);
+      saveLogin(username, form.password);
       saveMemberSession(member.id);
       prefetchTables(["members", "system_settings", "maintenance_codes", "transactions"]);
       toast.success(`Welcome back, ${member.full_name}!`);
