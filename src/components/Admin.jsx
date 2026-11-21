@@ -5,7 +5,7 @@ import {
   Eye, EyeOff, DollarSign, Trash2, RotateCcw, UserCog, GitBranch, Search,
   Download, Copy, Crown, ArrowRight, ChevronDown, X as XIcon, FileText,
   Key, Clock, Lock, Pencil, User, Save, Upload, Image as ImageIcon,
-  UserPlus, ArrowLeft, ShoppingBag, Store, Mail, History,
+  UserPlus, ArrowLeft, ShoppingBag, Store, Mail, History, CreditCard,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTable, updateRecord, createRecord, deleteRecord } from "../lib/useData";
@@ -21,6 +21,7 @@ import Genealogy from "./Genealogy";
 import MonitoringView from "./MonitoringView";
 import AdminStoreTab from "./AdminStoreTab";
 import AdminTransactionHistory from "./AdminTransactionHistory";
+import AdminOwnershipTab from "./AdminOwnershipTab";
 import MaintenanceOverrideModal from "./MaintenanceOverrideModal";
 import EditBalanceModal from "./EditBalanceModal";
 import SendNotificationModal from "./SendNotificationModal";
@@ -159,6 +160,7 @@ export default function Admin() {
     { id: "codes", label: "Codes", icon: Ticket, active: "from-teal-500 to-emerald-600", inactive: "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100" },
     { id: "withdrawals", label: `Withdrawals${pendingWithdrawals.length > 0 ? ` (${pendingWithdrawals.length})` : ""}`, icon: Wallet, active: "from-blue-500 to-indigo-600", inactive: "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" },
     { id: "history", label: "Transaction History", icon: FileText, active: "from-violet-500 to-purple-600", inactive: "bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100" },
+    { id: "ownership", label: "Ownership", icon: CreditCard, active: "from-amber-500 to-yellow-600", inactive: "bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100" },
     ...(tabVisibility.product_conversion ? [{ id: "product_conversion", label: "Product Conversion", icon: ShoppingBag, active: "from-purple-500 to-fuchsia-600", inactive: "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100" }] : []),
     { id: "genealogy", label: "Genealogy", icon: GitBranch, active: "from-pink-500 to-rose-600", inactive: "bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100" },
     ...(tabVisibility.monitoring ? [{ id: "monitoring", label: "Monitoring", icon: Eye, active: "from-cyan-500 to-sky-600", inactive: "bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100" }] : []),
@@ -964,6 +966,8 @@ export default function Admin() {
 
       {/* Transaction History Tab */}
       {tab === "history" && <AdminTransactionHistory members={members} transactions={transactions} />}
+
+      {tab === "ownership" && <AdminOwnershipTab members={activeMembers} settings={settings} refetchSettings={refetchSettings} />}
 
       {/* Product Conversion Tab */}
       {tab === "product_conversion" && (

@@ -402,9 +402,33 @@ insert into public.level_bonuses(level, bonus_amount, is_active) values
   (1, 200, true), (2, 0, false), (3, 0, false), (4, 0, false), (5, 0, false)
 on conflict (level) do update set bonus_amount=excluded.bonus_amount, is_active=excluded.is_active;
 
+-- ========== OWNERSHIP ==========
+create table if not exists public.ownership_payments (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid references public.members(id) on delete cascade,
+  amount numeric default 0,
+  total_amount numeric default 0,
+  discount numeric default 0,
+  note text,
+  recorded_by uuid references public.members(id),
+  created_at timestamptz default now(),
+  created_date timestamptz default now()
+);
+
+create index if not exists idx_ownership_payments_member on public.ownership_payments(member_id);
+
+alter table public.ownership_payments enable row level security;
+
+do $$ begin
+  create policy "allow_all_ownership_payments" on public.ownership_payments for all using (true) with check (true);
+exception when duplicate_object then null;
+end $$;
+
 -- ========== DEFAULT SYSTEM SETTINGS ==========
 insert into public.system_settings (setting_key, setting_value, description) values
   ('withdrawal_minimum_amount', '300', 'Minimum withdrawal amount'),
+  ('ownership_total_amount', '0', 'System ownership total amount charged per member'),
+  ('ownership_discount_amount', '0', 'System ownership discount deducted from the total amount'),
   ('tab_monitoring_visible', 'true', 'Monitoring tab visibility'),
   ('tab_subadmin_visible', 'true', 'Sub-admin tab visibility'),
   ('tab_terms_visible', 'true', 'Terms visibility'),
