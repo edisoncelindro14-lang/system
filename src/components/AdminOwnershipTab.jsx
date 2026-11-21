@@ -60,8 +60,10 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
       ];
       for (const { key, value } of pairs) {
         const existing = settings.find(s => s.setting_key === key);
-        if (existing) await updateRecord("system_settings", existing.id, { setting_value: value });
-        else await createRecord("system_settings", { setting_key: key, setting_value: value });
+        const { error } = existing
+          ? await updateRecord("system_settings", existing.id, { setting_value: value })
+          : await createRecord("system_settings", { setting_key: key, setting_value: value });
+        if (error) throw error;
       }
       toast.success("Ownership amount and discount saved");
       refetchSettings?.();
@@ -106,17 +108,23 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
     setSavingAccount(true);
     try {
       if (total === null && next === null && discount === null) {
-        if (account) await deleteRecord("ownership_accounts", account.id);
+        if (account) {
+          const { error } = await deleteRecord("ownership_accounts", account.id);
+          if (error) throw error;
+        }
         toast.success("Using system amounts again");
       } else {
         const values = { total_amount: total, next_payment_amount: next, discount, updated_by: getSessionMemberId() };
-        if (account) await updateRecord("ownership_accounts", account.id, values);
-        else await createRecord("ownership_accounts", { member_id: amountModal.id, ...values });
+        const { error } = account
+          ? await updateRecord("ownership_accounts", account.id, values)
+          : await createRecord("ownership_accounts", { member_id: amountModal.id, ...values });
+        if (error) throw error;
         toast.success(`Ownership amounts saved for @${amountModal.username}`);
       }
       setAmountModal(null);
       refetchAccounts();
-    } catch {
+    } catch (error) {
+      console.error("Failed to save ownership amounts:", error);
       toast.error("Failed to save ownership amounts");
     }
     setSavingAccount(false);
