@@ -40,10 +40,11 @@ export function ownershipSummary(memberId, payments = [], settings = [], account
   const paid = mine.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balance = Math.max(0, payable - paid);
   const nextPayment = overrideAmount(account, "next_payment_amount") ?? balance;
+  const nextPaymentDue = account?.next_payment_due || null;
   const percent = payable > 0 ? Math.min(100, (paid / payable) * 100) : 0;
   const status = paid <= 0 ? "unpaid" : balance <= 0 ? "paid" : "partial";
   return {
-    total, discount, payable, paid, balance, nextPayment, percent, status,
+    total, discount, payable, paid, balance, nextPayment, nextPaymentDue, percent, status,
     hasCustomTotal: overrideAmount(account, "total_amount") !== null,
     hasCustomDiscount: overrideAmount(account, "discount") !== null,
     payments: mine, lastPayment: mine[0] || null,

@@ -430,6 +430,7 @@ create table if not exists public.ownership_accounts (
   member_id uuid unique references public.members(id) on delete cascade,
   total_amount numeric,
   next_payment_amount numeric,
+  next_payment_due date,
   discount numeric,
   updated_by uuid references public.members(id),
   created_at timestamptz default now(),
@@ -437,6 +438,8 @@ create table if not exists public.ownership_accounts (
 );
 
 create index if not exists idx_ownership_accounts_member on public.ownership_accounts(member_id);
+
+alter table public.ownership_accounts add column if not exists next_payment_due date;
 
 alter table public.ownership_accounts enable row level security;
 

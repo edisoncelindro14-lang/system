@@ -80,6 +80,7 @@ export default function Ownership() {
           <div>
             <p className="text-sm text-gray-500">Next to pay</p>
             <p className="text-xl font-bold text-amber-600">{money(summary.nextPayment)}</p>
+            {summary.nextPaymentDue && <p className="text-xs text-gray-500">Due {formatDate(`${summary.nextPaymentDue}T00:00:00`, "MMM d, yyyy")}</p>}
           </div>
           <Badge className={status.color}>{status.label}</Badge>
         </div>

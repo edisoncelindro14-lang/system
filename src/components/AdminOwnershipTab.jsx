@@ -23,6 +23,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
   const [amountModal, setAmountModal] = useState(null);
   const [formTotal, setFormTotal] = useState("");
   const [formNext, setFormNext] = useState("");
+  const [formDue, setFormDue] = useState("");
   const [formDiscount, setFormDiscount] = useState("");
   const [savingAccount, setSavingAccount] = useState(false);
 
@@ -85,6 +86,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
     setAmountModal(member);
     setFormTotal(account?.total_amount != null ? String(account.total_amount) : "");
     setFormNext(account?.next_payment_amount != null ? String(account.next_payment_amount) : "");
+    setFormDue(account?.next_payment_due || "");
     setFormDiscount(account?.discount != null ? String(account.discount) : "");
   }
 
@@ -100,6 +102,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
     const total = parseOptionalAmount(formTotal);
     const next = parseOptionalAmount(formNext);
     const discount = parseOptionalAmount(formDiscount);
+    const due = formDue || null;
     if ([total, next, discount].some(v => Number.isNaN(v))) {
       toast.error("Enter valid amounts (0 or higher) or leave blank");
       return;
@@ -107,14 +110,14 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
     const account = accountFor(accounts, amountModal.id);
     setSavingAccount(true);
     try {
-      if (total === null && next === null && discount === null) {
+      if (total === null && next === null && discount === null && !due) {
         if (account) {
           const { error } = await deleteRecord("ownership_accounts", account.id);
           if (error) throw error;
         }
         toast.success("Using system amounts again");
       } else {
-        const values = { total_amount: total, next_payment_amount: next, discount, updated_by: getSessionMemberId() };
+        const values = { total_amount: total, next_payment_amount: next, next_payment_due: due, discount, updated_by: getSessionMemberId() };
         const { error } = account
           ? await updateRecord("ownership_accounts", account.id, values)
           : await createRecord("ownership_accounts", { member_id: amountModal.id, ...values });
@@ -258,7 +261,10 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
                         {money(s.discount)}
                         {s.hasCustomDiscount && <span className="block text-[10px] text-amber-600 font-semibold uppercase">custom</span>}
                       </td>
-                      <td className="px-5 py-3 text-right text-sm font-semibold text-amber-600">{money(s.nextPayment)}</td>
+                      <td className="px-5 py-3 text-right text-sm font-semibold text-amber-600">
+                        {money(s.nextPayment)}
+                        {s.nextPaymentDue && <span className="block text-[10px] text-gray-400 font-medium">Due {formatDate(`${s.nextPaymentDue}T00:00:00`, "MMM d, yyyy")}</span>}
+                      </td>
                       <td className="px-5 py-3 text-right text-sm font-bold text-emerald-600">{money(s.paid)}</td>
                       <td className="px-5 py-3 text-right text-sm font-bold text-gray-900">{money(s.balance)}</td>
                       <td className="px-5 py-3">
@@ -307,6 +313,10 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
                 <div>
                   <Label>Next Amount to Pay (₱)</Label>
                   <Input type="number" min="0" step="0.01" value={formNext} onChange={e => setFormNext(e.target.value)} placeholder={`Balance: ${money(amountSummary.balance)}`} />
+                </div>
+                <div>
+                  <Label>Next Payment Due Date</Label>
+                  <Input type="date" value={formDue} onChange={e => setFormDue(e.target.value)} />
                 </div>
                 <div>
                   <Label>Discount (₱)</Label>

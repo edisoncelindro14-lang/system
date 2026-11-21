@@ -12,11 +12,15 @@ create table if not exists public.ownership_accounts (
   member_id uuid unique references public.members(id) on delete cascade,
   total_amount numeric,
   next_payment_amount numeric,
+  next_payment_due date,
   discount numeric,
   updated_by uuid references public.members(id),
   created_at timestamptz default now(),
   created_date timestamptz default now()
 );
+
+-- Existing projects created before the due date was added need the column too.
+alter table public.ownership_accounts add column if not exists next_payment_due date;
 
 create index if not exists idx_ownership_accounts_member on public.ownership_accounts(member_id);
 
