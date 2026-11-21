@@ -424,6 +424,27 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
+-- Per-member ownership overrides (null = use the system amounts above)
+create table if not exists public.ownership_accounts (
+  id uuid primary key default gen_random_uuid(),
+  member_id uuid unique references public.members(id) on delete cascade,
+  total_amount numeric,
+  next_payment_amount numeric,
+  discount numeric,
+  updated_by uuid references public.members(id),
+  created_at timestamptz default now(),
+  created_date timestamptz default now()
+);
+
+create index if not exists idx_ownership_accounts_member on public.ownership_accounts(member_id);
+
+alter table public.ownership_accounts enable row level security;
+
+do $$ begin
+  create policy "allow_all_ownership_accounts" on public.ownership_accounts for all using (true) with check (true);
+exception when duplicate_object then null;
+end $$;
+
 -- ========== DEFAULT SYSTEM SETTINGS ==========
 insert into public.system_settings (setting_key, setting_value, description) values
   ('withdrawal_minimum_amount', '300', 'Minimum withdrawal amount'),

@@ -4,13 +4,14 @@ import { motion } from "framer-motion";
 import { CreditCard, ArrowRight, Receipt, TrendingDown, Percent, Wallet } from "lucide-react";
 import { useTable, useCurrentMember } from "../lib/useData";
 import { money, formatDate } from "../lib/helpers";
-import { ownershipSummary, OWNERSHIP_STATUS } from "../lib/ownership";
+import { ownershipSummary, accountFor, OWNERSHIP_STATUS } from "../lib/ownership";
 import { Button, Badge } from "./ui";
 
 export default function Ownership() {
   const { data: members = [] } = useTable("members");
   const { data: payments = [], isLoading } = useTable("ownership_payments", { order: "-created_date" });
   const { data: settings = [] } = useTable("system_settings");
+  const { data: accounts = [] } = useTable("ownership_accounts");
   const { currentMember } = useCurrentMember(members);
 
   if (!currentMember && !isLoading) {
@@ -28,7 +29,7 @@ export default function Ownership() {
     return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-gray-200 border-t-gray-800 rounded-full animate-spin" /></div>;
   }
 
-  const summary = ownershipSummary(currentMember.id, payments, settings);
+  const summary = ownershipSummary(currentMember.id, payments, settings, accountFor(accounts, currentMember.id));
   const status = OWNERSHIP_STATUS[summary.status];
 
   return (
@@ -71,10 +72,14 @@ export default function Ownership() {
 
       {/* Progress */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-6">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 gap-4 flex-wrap">
           <div>
             <p className="text-sm text-gray-500">Payable after discount</p>
             <p className="text-xl font-bold text-gray-900">{money(summary.payable)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Next to pay</p>
+            <p className="text-xl font-bold text-amber-600">{money(summary.nextPayment)}</p>
           </div>
           <Badge className={status.color}>{status.label}</Badge>
         </div>

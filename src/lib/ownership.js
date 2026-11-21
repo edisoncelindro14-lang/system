@@ -13,18 +13,39 @@ export function settingAmount(settings = [], key, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-// Ownership totals for one member. The payable amount is the system total
-// minus the system discount; payments reduce the remaining balance.
-export function ownershipSummary(memberId, payments = [], settings = []) {
-  const total = settingAmount(settings, OWNERSHIP_TOTAL_KEY);
-  const discount = settingAmount(settings, OWNERSHIP_DISCOUNT_KEY);
+// Per-member override row (public.ownership_accounts) for one member, if any.
+export function accountFor(accounts = [], memberId) {
+  return accounts.find(a => a.member_id === memberId) || null;
+}
+
+// An override amount, or null when the member inherits the system setting.
+export function overrideAmount(account, field) {
+  if (!account) return null;
+  const raw = account[field];
+  if (raw === null || raw === undefined || raw === "") return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+// Ownership totals for one member. The payable amount is the total minus the
+// discount; payments reduce the remaining balance. Per-member overrides win
+// over the system settings, and the next payment defaults to the balance.
+export function ownershipSummary(memberId, payments = [], settings = [], account = null) {
+  const total = overrideAmount(account, "total_amount") ?? settingAmount(settings, OWNERSHIP_TOTAL_KEY);
+  const discount = overrideAmount(account, "discount") ?? settingAmount(settings, OWNERSHIP_DISCOUNT_KEY);
   const payable = Math.max(0, total - discount);
   const mine = payments
     .filter(p => p.member_id === memberId)
     .sort((a, b) => new Date(b.created_date || b.created_at) - new Date(a.created_date || a.created_at));
   const paid = mine.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balance = Math.max(0, payable - paid);
+  const nextPayment = overrideAmount(account, "next_payment_amount") ?? balance;
   const percent = payable > 0 ? Math.min(100, (paid / payable) * 100) : 0;
   const status = paid <= 0 ? "unpaid" : balance <= 0 ? "paid" : "partial";
-  return { total, discount, payable, paid, balance, percent, status, payments: mine, lastPayment: mine[0] || null };
+  return {
+    total, discount, payable, paid, balance, nextPayment, percent, status,
+    hasCustomTotal: overrideAmount(account, "total_amount") !== null,
+    hasCustomDiscount: overrideAmount(account, "discount") !== null,
+    payments: mine, lastPayment: mine[0] || null,
+  };
 }

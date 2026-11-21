@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CreditCard, Search, Plus, Save, X, Receipt, Trash2, Percent, Wallet, Users } from "lucide-react";
+import { CreditCard, Search, Plus, Save, X, Receipt, Trash2, Percent, Wallet, Users, SlidersHorizontal } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTable, createRecord, updateRecord, deleteRecord } from "../lib/useData";
 import { getSessionMemberId } from "../lib/auth";
 import { money, formatDate } from "../lib/helpers";
-import { ownershipSummary, OWNERSHIP_STATUS, OWNERSHIP_TOTAL_KEY, OWNERSHIP_DISCOUNT_KEY } from "../lib/ownership";
+import { ownershipSummary, accountFor, settingAmount, OWNERSHIP_STATUS, OWNERSHIP_TOTAL_KEY, OWNERSHIP_DISCOUNT_KEY } from "../lib/ownership";
 import { Button, Input, Label, Badge } from "./ui";
 
 export default function AdminOwnershipTab({ members = [], settings = [], refetchSettings }) {
   const { data: payments = [], refetch: refetchPayments } = useTable("ownership_payments", { order: "-created_date" });
+  const { data: accounts = [], refetch: refetchAccounts } = useTable("ownership_accounts");
   const [search, setSearch] = useState("");
   const [totalAmount, setTotalAmount] = useState("0");
   const [discountAmount, setDiscountAmount] = useState("0");
@@ -19,6 +20,11 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
   const [payNote, setPayNote] = useState("");
   const [savingPay, setSavingPay] = useState(false);
   const [historyModal, setHistoryModal] = useState(null);
+  const [amountModal, setAmountModal] = useState(null);
+  const [formTotal, setFormTotal] = useState("");
+  const [formNext, setFormNext] = useState("");
+  const [formDiscount, setFormDiscount] = useState("");
+  const [savingAccount, setSavingAccount] = useState(false);
 
   useEffect(() => {
     const total = settings.find(s => s.setting_key === OWNERSHIP_TOTAL_KEY);
@@ -27,7 +33,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
     setDiscountAmount(discount?.setting_value || "0");
   }, [settings]);
 
-  const summaryFor = member => ownershipSummary(member.id, payments, settings);
+  const summaryFor = member => ownershipSummary(member.id, payments, settings, accountFor(accounts, member.id));
 
   const rows = members
     .filter(m => m.status !== "deleted")
@@ -72,6 +78,50 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
     setPayNote("");
   }
 
+  function openAmountModal(member) {
+    const account = accountFor(accounts, member.id);
+    setAmountModal(member);
+    setFormTotal(account?.total_amount != null ? String(account.total_amount) : "");
+    setFormNext(account?.next_payment_amount != null ? String(account.next_payment_amount) : "");
+    setFormDiscount(account?.discount != null ? String(account.discount) : "");
+  }
+
+  // Empty field = inherit the system amount for that member.
+  function parseOptionalAmount(raw) {
+    if (raw.trim() === "") return null;
+    const value = parseFloat(raw);
+    return Number.isFinite(value) && value >= 0 ? value : NaN;
+  }
+
+  async function saveAccount() {
+    if (!amountModal) return;
+    const total = parseOptionalAmount(formTotal);
+    const next = parseOptionalAmount(formNext);
+    const discount = parseOptionalAmount(formDiscount);
+    if ([total, next, discount].some(v => Number.isNaN(v))) {
+      toast.error("Enter valid amounts (0 or higher) or leave blank");
+      return;
+    }
+    const account = accountFor(accounts, amountModal.id);
+    setSavingAccount(true);
+    try {
+      if (total === null && next === null && discount === null) {
+        if (account) await deleteRecord("ownership_accounts", account.id);
+        toast.success("Using system amounts again");
+      } else {
+        const values = { total_amount: total, next_payment_amount: next, discount, updated_by: getSessionMemberId() };
+        if (account) await updateRecord("ownership_accounts", account.id, values);
+        else await createRecord("ownership_accounts", { member_id: amountModal.id, ...values });
+        toast.success(`Ownership amounts saved for @${amountModal.username}`);
+      }
+      setAmountModal(null);
+      refetchAccounts();
+    } catch {
+      toast.error("Failed to save ownership amounts");
+    }
+    setSavingAccount(false);
+  }
+
   async function savePayment() {
     const amount = parseFloat(payAmount);
     if (!payModal) return;
@@ -109,6 +159,9 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
 
   const paySummary = payModal ? summaryFor(payModal) : null;
   const remainingAfter = paySummary ? Math.max(0, paySummary.balance - (parseFloat(payAmount) || 0)) : 0;
+  const systemTotal = settingAmount(settings, OWNERSHIP_TOTAL_KEY);
+  const systemDiscount = settingAmount(settings, OWNERSHIP_DISCOUNT_KEY);
+  const amountSummary = amountModal ? summaryFor(amountModal) : null;
 
   return (
     <div className="space-y-6">
@@ -169,6 +222,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Member</th>
                 <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
                 <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Discount</th>
+                <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Next to Pay</th>
                 <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Paid</th>
                 <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Balance</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
@@ -177,7 +231,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan="7" className="text-center py-12 text-gray-400">No members found</td></tr>
+                <tr><td colSpan="8" className="text-center py-12 text-gray-400">No members found</td></tr>
               ) : (
                 rows.map(m => {
                   const s = summaryFor(m);
@@ -188,8 +242,15 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
                         <p className="font-bold text-gray-900 truncate">{m.full_name || m.username}</p>
                         <p className="text-xs text-gray-400 truncate">@{m.username}</p>
                       </td>
-                      <td className="px-5 py-3 text-right text-sm text-gray-700">{money(s.total)}</td>
-                      <td className="px-5 py-3 text-right text-sm text-fuchsia-600">{money(s.discount)}</td>
+                      <td className="px-5 py-3 text-right text-sm text-gray-700">
+                        {money(s.total)}
+                        {s.hasCustomTotal && <span className="block text-[10px] text-amber-600 font-semibold uppercase">custom</span>}
+                      </td>
+                      <td className="px-5 py-3 text-right text-sm text-fuchsia-600">
+                        {money(s.discount)}
+                        {s.hasCustomDiscount && <span className="block text-[10px] text-amber-600 font-semibold uppercase">custom</span>}
+                      </td>
+                      <td className="px-5 py-3 text-right text-sm font-semibold text-amber-600">{money(s.nextPayment)}</td>
                       <td className="px-5 py-3 text-right text-sm font-bold text-emerald-600">{money(s.paid)}</td>
                       <td className="px-5 py-3 text-right text-sm font-bold text-gray-900">{money(s.balance)}</td>
                       <td className="px-5 py-3">
@@ -200,6 +261,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => openAmountModal(m)} className="p-2 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors" title="Set Amounts"><SlidersHorizontal className="w-4 h-4" /></button>
                           <button onClick={() => openPayModal(m)} className="p-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors" title="Record Payment"><Plus className="w-4 h-4" /></button>
                           <button onClick={() => setHistoryModal(m)} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors" title="Payment History"><Receipt className="w-4 h-4" /></button>
                         </div>
@@ -212,6 +274,55 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
           </table>
         </div>
       </div>
+
+      {/* Per-member amounts modal */}
+      <AnimatePresence>
+        {amountModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setAmountModal(null)}>
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-50 rounded-xl"><SlidersHorizontal className="w-5 h-5 text-amber-600" /></div>
+                  <h2 className="text-lg font-bold text-gray-800">Ownership Amounts — {amountModal.username}</h2>
+                </div>
+                <button onClick={() => setAmountModal(null)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
+              </div>
+              <div className="px-6 py-5 space-y-4">
+                <p className="text-xs text-gray-500">Leave a field blank to use the system default.</p>
+                <div>
+                  <Label>Total Amount (₱)</Label>
+                  <Input type="number" min="0" step="0.01" value={formTotal} onChange={e => setFormTotal(e.target.value)} placeholder={`System: ${money(systemTotal)}`} />
+                </div>
+                <div>
+                  <Label>Next Amount to Pay (₱)</Label>
+                  <Input type="number" min="0" step="0.01" value={formNext} onChange={e => setFormNext(e.target.value)} placeholder={`Balance: ${money(amountSummary.balance)}`} />
+                </div>
+                <div>
+                  <Label>Discount (₱)</Label>
+                  <Input type="number" min="0" step="0.01" value={formDiscount} onChange={e => setFormDiscount(e.target.value)} placeholder={`System: ${money(systemDiscount)}`} />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Payable after discount:{" "}
+                  <span className="font-bold text-gray-900">
+                    {money(Math.max(0,
+                      (parseOptionalAmount(formTotal) ?? systemTotal) - (parseOptionalAmount(formDiscount) ?? systemDiscount)
+                    ))}
+                  </span>
+                </p>
+              </div>
+              <div className="flex gap-3 px-6 py-5 border-t border-gray-100 bg-gray-50">
+                <button onClick={() => setAmountModal(null)} className="flex-[2] h-12 rounded-xl bg-white border border-gray-300 text-gray-900 font-medium hover:bg-gray-100 transition-all">Cancel</button>
+                <button onClick={saveAccount} disabled={savingAccount} className="flex-[3] h-12 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-medium transition-all disabled:opacity-50">
+                  {savingAccount ? "Saving..." : "Save Amounts"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Record payment modal */}
       <AnimatePresence>
