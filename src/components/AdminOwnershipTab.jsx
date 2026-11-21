@@ -126,6 +126,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
       }
       setAmountModal(null);
       refetchAccounts();
+      window.dispatchEvent(new CustomEvent("ownership_changed"));
     } catch (error) {
       console.error("Failed to save ownership amounts:", error);
       toast.error("Failed to save ownership amounts");
@@ -152,6 +153,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
       toast.success(`Payment of ${money(amount)} recorded`);
       setPayModal(null);
       refetchPayments();
+      window.dispatchEvent(new CustomEvent("ownership_changed"));
     } catch (err) {
       toast.error(err?.message || "Failed to record payment");
     }
@@ -163,6 +165,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
       await deleteRecord("ownership_payments", payment.id);
       toast.success("Payment deleted");
       refetchPayments();
+      window.dispatchEvent(new CustomEvent("ownership_changed"));
     } catch {
       toast.error("Failed to delete payment");
     }

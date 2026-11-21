@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CreditCard, ArrowRight, Receipt, TrendingDown, Percent, Wallet } from "lucide-react";
@@ -9,10 +9,27 @@ import { Button, Badge } from "./ui";
 
 export default function Ownership() {
   const { data: members = [] } = useTable("members");
-  const { data: payments = [], isLoading } = useTable("ownership_payments", { order: "-created_date" });
-  const { data: settings = [] } = useTable("system_settings");
-  const { data: accounts = [] } = useTable("ownership_accounts");
+  const { data: payments = [], isLoading, refetch: refetchPayments } = useTable("ownership_payments", { order: "-created_date" });
+  const { data: settings = [], refetch: refetchSettings } = useTable("system_settings");
+  const { data: accounts = [], refetch: refetchAccounts } = useTable("ownership_accounts");
   const { currentMember } = useCurrentMember(members);
+
+  // The admin sets the amount, discount and due date, so re-read them instead of
+  // showing whatever was cached when this page first opened.
+  useEffect(() => {
+    const refresh = () => { refetchPayments(); refetchSettings(); refetchAccounts(); };
+    const refreshIfVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", refresh);
+    window.addEventListener("ownership_changed", refresh);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    const timer = setInterval(refreshIfVisible, 10000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("ownership_changed", refresh);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      clearInterval(timer);
+    };
+  }, [refetchPayments, refetchSettings, refetchAccounts]);
 
   if (!currentMember && !isLoading) {
     return (
