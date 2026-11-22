@@ -1,5 +1,33 @@
 import { supabase } from "./supabase";
 import { maintenanceStatus, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "./helpers";
+import { getSessionMemberId } from "./auth";
+import { OWNERSHIP_TOTAL_KEY } from "./ownership";
+
+// A redeemed code pays part of the system ownership: its amount is recorded in
+// the member's payment history and deducted from the system ownership total.
+export async function applyCodeOwnership(memberId, codeRecord, recordedBy = null) {
+  const amount = Number(codeRecord.amount || 0);
+  if (!(amount > 0)) return;
+
+  await supabase.from("ownership_payments").insert({
+    member_id: memberId,
+    amount,
+    note: `Maintenance code ${codeRecord.code}`,
+    recorded_by: recordedBy,
+  });
+
+  const { data: setting } = await supabase
+    .from("system_settings")
+    .select("id, setting_value")
+    .eq("setting_key", OWNERSHIP_TOTAL_KEY)
+    .maybeSingle();
+  if (setting) {
+    const remaining = Math.max(0, Number(setting.setting_value || 0) - amount);
+    await supabase.from("system_settings").update({ setting_value: String(remaining) }).eq("id", setting.id);
+  }
+
+  window.dispatchEvent(new CustomEvent("ownership_changed"));
+}
 
 // Redeem a maintenance code directly (used by CodeCabinet shortcut + Dashboard)
 export async function redeemCode(codeRecord, currentMember, allMembers, allCodes) {
@@ -45,6 +73,7 @@ export async function redeemCode(codeRecord, currentMember, allMembers, allCodes
 
   // Fetch fresh data so upline maintenance status is accurate
   await Promise.all(writes);
+  await applyCodeOwnership(currentMember.id, codeRecord);
   const [{ data: freshMembers }, { data: freshCodes }] = await Promise.all([
     supabase.from("members").select("*"),
     supabase.from("maintenance_codes").select("*"),
@@ -99,6 +128,7 @@ export async function redeemCodeForMember(codeRecord, member, allMembers, allCod
   }));
 
   await Promise.all(writes);
+  await applyCodeOwnership(member.id, codeRecord, getSessionMemberId() || null);
   const [{ data: freshMembers }, { data: freshCodes }] = await Promise.all([
     supabase.from("members").select("*"),
     supabase.from("maintenance_codes").select("*"),

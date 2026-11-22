@@ -15,12 +15,13 @@ export function storeQuotaSummary(storeId, quotas, codes) {
 }
 
 // Generate maintenance codes on behalf of a store (optionally designated to a username).
-export async function generateStoreCodes(storeId, count, assignedUsername) {
+export async function generateStoreCodes(storeId, count, assignedUsername, amount = 0) {
   const records = [];
   for (let i = 0; i < count; i++) {
     const base = "MAINT-" + generateReferralCode();
     records.push({
       code: assignedUsername ? `${base}-@${assignedUsername.toUpperCase()}` : base,
+      amount: Number(amount) || 0,
       is_used: false,
       assigned_username: assignedUsername || null,
       generated_by_store_id: storeId,

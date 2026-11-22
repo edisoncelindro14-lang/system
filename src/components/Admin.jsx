@@ -15,6 +15,7 @@ import { placementParent } from "../lib/genealogyPositions";
 import { getSessionMemberId } from "../lib/auth";
 import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
+import { applyCodeOwnership } from "../lib/redeem";
 import { Button, Input, Label, Badge } from "./ui";
 import { Megaphone } from "lucide-react";
 import Genealogy from "./Genealogy";
@@ -43,7 +44,7 @@ export default function Admin() {
   const [profileSearchOpen, setProfileSearchOpen] = useState(false);
   const [profileForm, setProfileForm] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [newCode, setNewCode] = useState({ count: "1", assignedUsername: "" });
+  const [newCode, setNewCode] = useState({ count: "1", assignedUsername: "", amount: "" });
   const [assignedSearch, setAssignedSearch] = useState("");
   const [assignedOpen, setAssignedOpen] = useState(false);
   const [gcash, setGcash] = useState({ gcash_number: "", gcash_name: "" });
@@ -202,6 +203,8 @@ export default function Admin() {
 
   async function generateCodes() {
     const count = parseInt(newCode.count) || 1;
+    const amount = parseFloat(newCode.amount);
+    if (!(amount > 0)) { toast.error("Enter the amount each code is worth"); return; }
     try {
       const records = [];
       for (let i = 0; i < count; i++) {
@@ -209,13 +212,14 @@ export default function Admin() {
         const code = newCode.assignedUsername ? `${base}-@${newCode.assignedUsername.toUpperCase()}` : base;
         records.push({
           code,
+          amount,
           is_used: false,
           assigned_username: newCode.assignedUsername || null,
         });
       }
       await supabase.from("maintenance_codes").insert(records);
       toast.success(`${count} code(s) generated!`);
-      setNewCode({ ...newCode, assignedUsername: "" });
+      setNewCode({ ...newCode, assignedUsername: "", amount: "" });
       refetchCodes();
     } catch { toast.error("Failed to generate codes"); }
   }
@@ -368,6 +372,8 @@ export default function Admin() {
         member_id: member.id, type: "maintenance_code", amount: 0,
         description: `Redeemed maintenance code: ${codeRecord.code}`, status: "completed",
       });
+      // Credit the code's amount to the member's ownership and lower the system total.
+      await applyCodeOwnership(member.id, codeRecord, getSessionMemberId() || null);
       const { data: freshMembers } = await supabase.from("members").select("*");
       const { data: freshCodes } = await supabase.from("maintenance_codes").select("*");
       const allMembers = freshMembers || members;
@@ -834,8 +840,9 @@ export default function Admin() {
         <div className="space-y-6">
           <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><Plus className="w-5 h-5 text-amber-500" /> Generate Maintenance Codes</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div><Label>Count</Label><Input type="number" value={newCode.count} onChange={e => setNewCode({ ...newCode, count: e.target.value })} /></div>
+              <div><Label>Amount per Code (₱)</Label><Input type="number" min="0" step="0.01" value={newCode.amount} onChange={e => setNewCode({ ...newCode, amount: e.target.value })} placeholder="0.00" /></div>
               <div className="relative">
                 <Label>Assign To (optional — locks code to this user)</Label>
                 {newCode.assignedUsername && !assignedOpen ? (
@@ -892,7 +899,7 @@ export default function Admin() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="border-b border-gray-100">
-                  {["Code", "Assigned To", "Status", "Used By", "Date", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
+                  {["Code", "Amount", "Assigned To", "Status", "Used By", "Date", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {codes.slice(0, 100).map(c => {
@@ -900,6 +907,7 @@ export default function Admin() {
                     return (
                       <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                         <td onClick={() => copyCode(c.code)} className="px-6 py-4 text-sm font-mono font-bold text-gray-900 cursor-pointer hover:text-amber-600 transition-colors select-none" title="Click to copy">{c.code}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">{money(c.amount || 0)}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{c.assigned_username ? `@${c.assigned_username}` : "—"}</td>
                         <td className="px-6 py-4"><Badge className={c.is_used ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"}>{c.is_used ? "Used" : "Available"}</Badge></td>
                         <td className="px-6 py-4 text-sm text-gray-600">{usedBy?.username || "—"}</td>
