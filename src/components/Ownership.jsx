@@ -9,7 +9,9 @@ import { Button, Badge } from "./ui";
 
 export default function Ownership() {
   const { data: members = [] } = useTable("members");
-  const { data: payments = [], isLoading, refetch: refetchPayments } = useTable("ownership_payments", { order: "-created_date" });
+  // Newest-first order is applied client-side by ownershipSummary, so this read
+  // does not depend on the created_date column existing in the database.
+  const { data: payments = [], isLoading, refetch: refetchPayments } = useTable("ownership_payments");
   const { data: settings = [], refetch: refetchSettings } = useTable("system_settings");
   const { data: accounts = [], refetch: refetchAccounts } = useTable("ownership_accounts");
   const { currentMember } = useCurrentMember(members);

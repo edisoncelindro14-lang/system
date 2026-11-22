@@ -9,7 +9,9 @@ import { ownershipSummary, accountFor, settingAmount, OWNERSHIP_STATUS, OWNERSHI
 import { Button, Input, Label, Badge } from "./ui";
 
 export default function AdminOwnershipTab({ members = [], settings = [], refetchSettings }) {
-  const { data: payments = [], refetch: refetchPayments, mutate: mutatePayments } = useTable("ownership_payments", { order: "-created_date" });
+  // Newest-first order is applied client-side by ownershipSummary, so this read
+  // does not depend on the created_date column existing in the database.
+  const { data: payments = [], refetch: refetchPayments, mutate: mutatePayments } = useTable("ownership_payments");
   const { data: accounts = [], refetch: refetchAccounts } = useTable("ownership_accounts");
   const [search, setSearch] = useState("");
   const [totalAmount, setTotalAmount] = useState("0");
