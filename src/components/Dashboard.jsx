@@ -12,6 +12,14 @@ import AnnouncementBanner from "./AnnouncementBanner";
 import NotificationsInbox from "./NotificationsInbox";
 import { ownershipSummary, accountFor } from "../lib/ownership";
 
+// 30 -> "30th", 1 -> "1st", 22 -> "22nd"
+function ordinal(day) {
+  const mod100 = day % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${day}th`;
+  const mod10 = day % 10;
+  return `${day}${mod10 === 1 ? "st" : mod10 === 2 ? "nd" : mod10 === 3 ? "rd" : "th"}`;
+}
+
 export default function Dashboard() {
   const [showHistory, setShowHistory] = useState(false);
   const [code, setCode] = useState("");
@@ -59,6 +67,7 @@ export default function Dashboard() {
   const ownership = currentMember
     ? ownershipSummary(currentMember.id, ownershipPayments, settings, accountFor(ownershipAccounts, currentMember.id))
     : null;
+  const dueDay = ownership?.nextPaymentDue ? parseInt(String(ownership.nextPaymentDue).split("-")[2], 10) : null;
 
   async function handleWithdraw() {
     if (withdrawValue < minAmount) {
@@ -211,10 +220,10 @@ export default function Dashboard() {
 
       <AnnouncementBanner />
 
-      {ownership?.nextPaymentDue && (
+      {dueDay > 0 && (
         <div className="mb-4 flex justify-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-red-50 border border-red-200 px-4 py-1.5 text-sm font-semibold text-red-600">
-            <Clock className="w-4 h-4" /> Next payment due: {formatDate(`${ownership.nextPaymentDue}T00:00:00`, "MMM d, yyyy")}
+            <Clock className="w-4 h-4" /> Payment Due Date: Every {ordinal(dueDay)} of the Month
           </span>
         </div>
       )}
