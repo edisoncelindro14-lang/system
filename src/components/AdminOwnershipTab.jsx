@@ -34,6 +34,21 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
     setDiscountAmount(discount?.setting_value || "0");
   }, [settings]);
 
+  // A redeemed code records a payment and lowers the system total, so re-read
+  // payments, overrides and settings instead of showing the cached snapshot.
+  useEffect(() => {
+    const refresh = () => { refetchPayments(); refetchAccounts(); refetchSettings?.(); };
+    const refreshIfVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", refresh);
+    window.addEventListener("ownership_changed", refresh);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("ownership_changed", refresh);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [refetchPayments, refetchAccounts, refetchSettings]);
+
   const summaryFor = member => ownershipSummary(member.id, payments, settings, accountFor(accounts, member.id));
 
   const rows = members
