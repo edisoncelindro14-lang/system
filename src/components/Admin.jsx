@@ -976,7 +976,7 @@ export default function Admin() {
       {/* Transaction History Tab */}
       {tab === "history" && <AdminTransactionHistory members={members} transactions={transactions} />}
 
-      {tab === "ownership" && <AdminOwnershipTab members={activeMembers} settings={settings} refetchSettings={refetchSettings} />}
+      {tab === "ownership" && <AdminOwnershipTab members={activeMembers} settings={settings} codes={codes} refetchSettings={refetchSettings} />}
 
       {/* Product Conversion Tab */}
       {tab === "product_conversion" && (

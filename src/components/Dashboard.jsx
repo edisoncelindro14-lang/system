@@ -65,7 +65,7 @@ export default function Dashboard() {
   const myRedeemedCodes = allCodes.filter(c => c.is_used && c.used_by_member_id === currentMember?.id).sort((a, b) => new Date(b.used_at) - new Date(a.used_at));
 
   const ownership = currentMember
-    ? ownershipSummary(currentMember.id, ownershipPayments, settings, accountFor(ownershipAccounts, currentMember.id))
+    ? ownershipSummary(currentMember.id, ownershipPayments, settings, accountFor(ownershipAccounts, currentMember.id), allCodes)
     : null;
   const dueDay = ownership?.nextPaymentDue ? parseInt(String(ownership.nextPaymentDue).split("-")[2], 10) : null;
 

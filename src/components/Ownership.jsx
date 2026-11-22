@@ -14,6 +14,7 @@ export default function Ownership() {
   const { data: payments = [], isLoading, refetch: refetchPayments } = useTable("ownership_payments");
   const { data: settings = [], refetch: refetchSettings } = useTable("system_settings");
   const { data: accounts = [], refetch: refetchAccounts } = useTable("ownership_accounts");
+  const { data: codes = [] } = useTable("maintenance_codes");
   const { currentMember } = useCurrentMember(members);
 
   // The admin sets the amount, discount and due date, so re-read them instead of
@@ -48,7 +49,7 @@ export default function Ownership() {
     return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-gray-200 border-t-gray-800 rounded-full animate-spin" /></div>;
   }
 
-  const summary = ownershipSummary(currentMember.id, payments, settings, accountFor(accounts, currentMember.id));
+  const summary = ownershipSummary(currentMember.id, payments, settings, accountFor(accounts, currentMember.id), codes);
   const status = OWNERSHIP_STATUS[summary.status];
 
   return (

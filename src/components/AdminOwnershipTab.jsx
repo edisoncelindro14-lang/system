@@ -8,7 +8,7 @@ import { money, formatDate } from "../lib/helpers";
 import { ownershipSummary, accountFor, settingAmount, OWNERSHIP_STATUS, OWNERSHIP_TOTAL_KEY, OWNERSHIP_DISCOUNT_KEY } from "../lib/ownership";
 import { Button, Input, Label, Badge } from "./ui";
 
-export default function AdminOwnershipTab({ members = [], settings = [], refetchSettings }) {
+export default function AdminOwnershipTab({ members = [], settings = [], codes = [], refetchSettings }) {
   // Newest-first order is applied client-side by ownershipSummary, so this read
   // does not depend on the created_date column existing in the database.
   const { data: payments = [], refetch: refetchPayments, mutate: mutatePayments } = useTable("ownership_payments");
@@ -51,7 +51,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
     };
   }, [refetchPayments, refetchAccounts, refetchSettings]);
 
-  const summaryFor = member => ownershipSummary(member.id, payments, settings, accountFor(accounts, member.id));
+  const summaryFor = member => ownershipSummary(member.id, payments, settings, accountFor(accounts, member.id), codes);
 
   const rows = members
     .filter(m => m.status !== "deleted")
@@ -61,7 +61,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
       return (m.full_name || "").toLowerCase().includes(q) || (m.username || "").toLowerCase().includes(q);
     });
 
-  const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const totalPaid = members.reduce((sum, m) => sum + summaryFor(m).paid, 0);
   const fullyPaid = members.filter(m => summaryFor(m).status === "paid").length;
   const totalOutstanding = members.reduce((sum, m) => sum + summaryFor(m).balance, 0);
 
@@ -444,7 +444,9 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
                           <p className="font-bold text-gray-900">{money(p.amount)}</p>
                           <p className="text-xs text-gray-400">{formatDate(p.created_date || p.created_at)}{p.note ? ` · ${p.note}` : ""}</p>
                         </div>
-                        <button onClick={() => removePayment(p)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors" title="Delete Payment"><Trash2 className="w-4 h-4" /></button>
+                        {!p.from_code && (
+                          <button onClick={() => removePayment(p)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors" title="Delete Payment"><Trash2 className="w-4 h-4" /></button>
+                        )}
                       </div>
                     ))}
                   </div>

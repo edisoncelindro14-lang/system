@@ -27,15 +27,32 @@ export function overrideAmount(account, field) {
   return Number.isFinite(value) ? value : null;
 }
 
+// A redeemed code pays part of the ownership. Codes redeemed before payment
+// recording existed (or whose payment insert was rejected) still count, unless a
+// payment whose note names that code already exists — so nothing counts twice.
+function codePayments(memberId, recordedPayments = [], codes = []) {
+  const notes = recordedPayments.map(p => p.note || "");
+  return codes
+    .filter(c => c.is_used && c.used_by_member_id === memberId && Number(c.amount) > 0)
+    .filter(c => !notes.some(note => note.includes(c.code)))
+    .map(c => ({
+      id: `code:${c.id}`,
+      amount: Number(c.amount),
+      note: `Maintenance code ${c.code}`,
+      created_date: c.used_at,
+      from_code: true,
+    }));
+}
+
 // Ownership totals for one member. The payable amount is the total minus the
 // discount; payments reduce the remaining balance. Per-member overrides win
 // over the system settings, and the next payment defaults to the balance.
-export function ownershipSummary(memberId, payments = [], settings = [], account = null) {
+export function ownershipSummary(memberId, payments = [], settings = [], account = null, codes = []) {
   const total = overrideAmount(account, "total_amount") ?? settingAmount(settings, OWNERSHIP_TOTAL_KEY);
   const discount = overrideAmount(account, "discount") ?? settingAmount(settings, OWNERSHIP_DISCOUNT_KEY);
   const payable = Math.max(0, total - discount);
-  const mine = payments
-    .filter(p => p.member_id === memberId)
+  const recorded = payments.filter(p => p.member_id === memberId);
+  const mine = [...recorded, ...codePayments(memberId, recorded, codes)]
     .sort((a, b) => new Date(b.created_date || b.created_at) - new Date(a.created_date || a.created_at));
   const paid = mine.reduce((sum, p) => sum + Number(p.amount || 0), 0);
   const balance = Math.max(0, payable - paid);
