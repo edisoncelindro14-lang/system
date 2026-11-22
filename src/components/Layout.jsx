@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, GitBranch, Users, Wallet, Layers, User, Shield, Crown, Store, LogOut, Menu, X, ChevronRight, Archive } from "lucide-react";
+import { LayoutDashboard, GitBranch, Users, Wallet, Layers, User, Shield, Crown, Store, LogOut, Menu, X, ChevronRight, Archive, CreditCard } from "lucide-react";
 import { useTable, useCurrentMember } from "../lib/useData";
 import { clearMemberSession, getSessionMemberId } from "../lib/auth";
 import { MaintenanceBanner } from "./MaintenanceBanner";
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { name: "Zistem Tree", icon: GitBranch, path: "Genealogy" },
   { name: "1st Level Monitoring", icon: Users, path: "Monitoring" },
   { name: "Total Withdrawal", icon: Wallet, path: "Earnings" },
+  { name: "Ownership", icon: CreditCard, path: "Ownership" },
   { name: "Zistem ComPlan", icon: Layers, path: "LevelBonuses" },
   { name: "Code Cabinet", icon: Archive, path: "CodeCabinet" },
   { name: "My Profile", icon: User, path: "Profile" },

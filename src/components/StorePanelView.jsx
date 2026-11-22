@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Ticket, Calendar, Copy } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTable } from "../lib/useData";
-import { formatDate, maintenanceStatus } from "../lib/helpers";
+import { formatDate, maintenanceStatus, money } from "../lib/helpers";
 import { useMaintenance } from "../lib/useMaintenance";
 import { storeQuotaSummary, generateStoreCodes } from "../lib/storeQuota";
 import WeeklyRedeemMonitor from "./WeeklyRedeemMonitor";
@@ -16,6 +16,8 @@ export default function StorePanelView({ store }) {
   const { data: quotas = [] } = useTable("store_code_quotas");
   const { data: redemptionHistory = [], refetch: refetchHistory } = useTable("code_redemption_history");
   const [count, setCount] = useState("1");
+  const [amount, setAmount] = useState("");
+  const [discount, setDiscount] = useState("");
   const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
   const [phonebookVersion, setPhonebookVersion] = useState(0);
@@ -44,15 +46,19 @@ export default function StorePanelView({ store }) {
   async function generate() {
     const n = parseInt(count) || 0;
     const target = username.trim().replace(/^@/, "");
+    const codeAmount = parseFloat(amount) || 0;
+    const codeDiscount = parseFloat(discount) || 0;
     if (n < 1) { toast.error("Enter a valid number of codes"); return; }
     if (n > q.remaining) { toast.error(`You can only generate ${q.remaining} more code(s)`); return; }
     if (!target) { toast.error("Select a username to designate the code to"); return; }
     if (!usernames.includes(target)) { toast.error("Username not found"); return; }
     setBusy(true);
     try {
-      await generateStoreCodes(store.id, n, target);
+      await generateStoreCodes(store.id, n, target, codeAmount, codeDiscount);
       toast.success(`${n} code(s) generated!`);
       setCount("1");
+      setAmount("");
+      setDiscount("");
       setUsername("");
       refetchCodes();
       setPhonebookVersion(v => v + 1);
@@ -98,10 +104,18 @@ export default function StorePanelView({ store }) {
       {/* Generate */}
       <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 mb-6">
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4"><Ticket className="w-5 h-5 text-teal-500" /> Generate Codes</h2>
-        <div className="grid sm:grid-cols-[160px_1fr_auto] gap-3 items-end">
+        <div className="grid sm:grid-cols-[140px_130px_130px_1fr_auto] gap-3 items-end">
           <div>
             <Label>Number of codes</Label>
             <Input type="number" min="1" max={q.remaining} value={count} onChange={e => setCount(e.target.value)} />
+          </div>
+          <div>
+            <Label>Amount per Code (₱, optional)</Label>
+            <Input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" />
+          </div>
+          <div>
+            <Label>Discount per Code (₱, optional)</Label>
+            <Input type="number" min="0" step="0.01" value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0.00" />
           </div>
           <div>
             <Label>Designate to username</Label>
@@ -132,14 +146,16 @@ export default function StorePanelView({ store }) {
         </div>
         <div className="overflow-auto max-h-[520px]">
           <table className="w-full">
-            <thead className="sticky top-0 bg-white z-10"><tr className="border-b border-gray-100">{["Code", "Designated To", "Status", "Generated", "Used Date"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr></thead>
+            <thead className="sticky top-0 bg-white z-10"><tr className="border-b border-gray-100">{["Code", "Amount", "Discount", "Designated To", "Status", "Generated", "Used Date"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}</tr></thead>
             <tbody>
-              {filteredGeneratedCodes.length === 0 ? <tr><td colSpan="5" className="text-center py-10 text-gray-400">No codes found</td></tr> :
+              {filteredGeneratedCodes.length === 0 ? <tr><td colSpan="7" className="text-center py-10 text-gray-400">No codes found</td></tr> :
               filteredGeneratedCodes.map(c => (
                 <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-6 py-3 text-sm font-mono font-bold text-gray-900">
                     <button onClick={() => { navigator.clipboard.writeText(c.code); toast.success("Copied"); }} className="inline-flex items-center gap-1 hover:text-teal-600">{c.code} <Copy className="w-3 h-3" /></button>
                   </td>
+                  <td className="px-6 py-3 text-sm font-semibold text-gray-900">{money(c.amount || 0)}</td>
+                  <td className="px-6 py-3 text-sm font-semibold text-fuchsia-600">{money(c.discount || 0)}</td>
                   <td className="px-6 py-3 text-sm text-gray-600">{c.assigned_username ? `@${c.assigned_username}` : "Unassigned"}</td>
                   <td className="px-6 py-3"><Badge className={c.is_used ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"}>{c.is_used ? "Used" : "Available"}</Badge></td>
                   <td className="px-6 py-3 text-sm text-gray-500">{formatDate(c.created_at)}</td>

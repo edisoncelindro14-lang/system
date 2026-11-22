@@ -9,6 +9,7 @@ import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
 import Genealogy from "./components/Genealogy";
 import Earnings from "./components/Earnings";
+import Ownership from "./components/Ownership";
 import Monitoring from "./components/Monitoring";
 import LevelBonuses from "./components/LevelBonuses";
 import Profile from "./components/Profile";
@@ -19,7 +20,7 @@ import Store from "./components/Store";
 import CodeCabinet from "./components/CodeCabinet";
 
 const PAGES = {
-  Dashboard, Genealogy, Earnings, Monitoring, LevelBonuses, Profile, Admin, SubAdmin, SupAdmin, Store, CodeCabinet,
+  Dashboard, Genealogy, Earnings, Ownership, Monitoring, LevelBonuses, Profile, Admin, SubAdmin, SupAdmin, Store, CodeCabinet,
 };
 
 function PageRouter() {

@@ -6,7 +6,7 @@ import { useTable } from "../lib/useData";
 import { useMaintenance } from "../lib/useMaintenance";
 import { supabase } from "../lib/supabase";
 import { redeemCode } from "../lib/redeem";
-import { formatDate, formatTime } from "../lib/helpers";
+import { formatDate, formatTime, money, redeemTimerEnabled } from "../lib/helpers";
 import { Button, Badge } from "./ui";
 import AutoRedeemPanel from "./AutoRedeemPanel";
 import WeeklyRedeemMonitor from "./WeeklyRedeemMonitor";
@@ -59,9 +59,11 @@ export default function CodeCabinet() {
     toast.success("Code copied! Paste it in the Maintenance Code box on your Dashboard.");
   }
 
-  // Redeem is locked unless: never redeemed before, maintenance expired, or ≤2h left on the 720h countdown
-  const canRedeem = !maintenance || !maintenance.isGreen || maintenance.secondsLeft <= REDEEM_UNLOCK_THRESHOLD;
-  const lockSeconds = maintenance && maintenance.isGreen ? maintenance.secondsLeft : 0;
+  // Redeem is locked unless: the admin turned the timer off, never redeemed
+  // before, maintenance expired, or ≤2h left on the 720h countdown
+  const timerEnabled = redeemTimerEnabled(systemSettings);
+  const canRedeem = !timerEnabled || !maintenance || !maintenance.isGreen || maintenance.secondsLeft <= REDEEM_UNLOCK_THRESHOLD;
+  const lockSeconds = timerEnabled && maintenance && maintenance.isGreen ? maintenance.secondsLeft : 0;
 
   async function handleRedeem(code) {
     if (!canRedeem) {
@@ -139,6 +141,7 @@ export default function CodeCabinet() {
               <div key={c.id} className="flex items-center justify-between px-6 py-4">
                 <div>
                   <p className="font-mono font-bold text-gray-900">{c.code}</p>
+                  <p className="text-xs font-semibold text-emerald-600 mt-0.5">{money(c.amount || 0)} ownership credit{c.discount > 0 ? ` · ${money(c.discount)} discount` : ""}</p>
                   <p className="text-xs text-gray-400 mt-0.5">Received {formatDate(c.created_at, "MMM d, yyyy h:mm a")}</p>
                   {!canRedeem && (
                     <p className="text-xs font-semibold text-orange-600 mt-1 flex items-center gap-1">

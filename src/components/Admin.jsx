@@ -5,7 +5,7 @@ import {
   Eye, EyeOff, DollarSign, Trash2, RotateCcw, UserCog, GitBranch, Search,
   Download, Copy, Crown, ArrowRight, ChevronDown, X as XIcon, FileText,
   Key, Clock, Lock, Pencil, User, Save, Upload, Image as ImageIcon,
-  UserPlus, ArrowLeft, ShoppingBag, Store, Mail, History,
+  UserPlus, ArrowLeft, ShoppingBag, Store, Mail, History, CreditCard, Layers,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTable, updateRecord, createRecord, deleteRecord } from "../lib/useData";
@@ -13,14 +13,16 @@ import { supabase } from "../lib/supabase";
 import { transferSponsor } from "../lib/sponsorTransfer";
 import { placementParent } from "../lib/genealogyPositions";
 import { getSessionMemberId } from "../lib/auth";
-import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "../lib/helpers";
+import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime, LEVEL6_SETTING_KEY } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
+import { applyCodeOwnership, distributeUplineBonuses } from "../lib/redeem";
 import { Button, Input, Label, Badge } from "./ui";
 import { Megaphone } from "lucide-react";
 import Genealogy from "./Genealogy";
 import MonitoringView from "./MonitoringView";
 import AdminStoreTab from "./AdminStoreTab";
 import AdminTransactionHistory from "./AdminTransactionHistory";
+import AdminOwnershipTab from "./AdminOwnershipTab";
 import MaintenanceOverrideModal from "./MaintenanceOverrideModal";
 import EditBalanceModal from "./EditBalanceModal";
 import SendNotificationModal from "./SendNotificationModal";
@@ -42,7 +44,7 @@ export default function Admin() {
   const [profileSearchOpen, setProfileSearchOpen] = useState(false);
   const [profileForm, setProfileForm] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [newCode, setNewCode] = useState({ count: "1", assignedUsername: "" });
+  const [newCode, setNewCode] = useState({ count: "1", assignedUsername: "", amount: "", discount: "" });
   const [assignedSearch, setAssignedSearch] = useState("");
   const [assignedOpen, setAssignedOpen] = useState(false);
   const [gcash, setGcash] = useState({ gcash_number: "", gcash_name: "" });
@@ -50,6 +52,8 @@ export default function Admin() {
   const [savingMin, setSavingMin] = useState(false);
   const [autoRedeemTime, setAutoRedeemTime] = useState("");
   const [autoRedeemEnabled, setAutoRedeemEnabled] = useState(true);
+  const [redeemTimerOn, setRedeemTimerOn] = useState(true);
+  const [level6On, setLevel6On] = useState(true);
   const [txSearch, setTxSearch] = useState("");
   const [tabVisibility, setTabVisibility] = useState({ monitoring: true, subadmin: true, terms: true, complan: true, product_conversion: true });
   const [announcementText, setAnnouncementText] = useState("");
@@ -92,6 +96,8 @@ export default function Admin() {
     if (minSetting) setMinAmount(minSetting.setting_value);
     setAutoRedeemTime(map.auto_redeem_start_time || "");
     setAutoRedeemEnabled(map.auto_redeem_enabled !== "false");
+    setRedeemTimerOn(map.redeem_timer_enabled !== "false");
+    setLevel6On(map[LEVEL6_SETTING_KEY] !== "false");
     setAnnouncementText(map.announcement_text || "");
     setAnnouncementEnabled(map.announcement_enabled === "true");
   }, [settings]);
@@ -159,6 +165,7 @@ export default function Admin() {
     { id: "codes", label: "Codes", icon: Ticket, active: "from-teal-500 to-emerald-600", inactive: "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100" },
     { id: "withdrawals", label: `Withdrawals${pendingWithdrawals.length > 0 ? ` (${pendingWithdrawals.length})` : ""}`, icon: Wallet, active: "from-blue-500 to-indigo-600", inactive: "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" },
     { id: "history", label: "Transaction History", icon: FileText, active: "from-violet-500 to-purple-600", inactive: "bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100" },
+    { id: "ownership", label: "Ownership", icon: CreditCard, active: "from-amber-500 to-yellow-600", inactive: "bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100" },
     ...(tabVisibility.product_conversion ? [{ id: "product_conversion", label: "Product Conversion", icon: ShoppingBag, active: "from-purple-500 to-fuchsia-600", inactive: "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100" }] : []),
     { id: "genealogy", label: "Genealogy", icon: GitBranch, active: "from-pink-500 to-rose-600", inactive: "bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100" },
     ...(tabVisibility.monitoring ? [{ id: "monitoring", label: "Monitoring", icon: Eye, active: "from-cyan-500 to-sky-600", inactive: "bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100" }] : []),
@@ -200,6 +207,8 @@ export default function Admin() {
 
   async function generateCodes() {
     const count = parseInt(newCode.count) || 1;
+    const amount = parseFloat(newCode.amount) || 0;
+    const discount = parseFloat(newCode.discount) || 0;
     try {
       const records = [];
       for (let i = 0; i < count; i++) {
@@ -207,13 +216,15 @@ export default function Admin() {
         const code = newCode.assignedUsername ? `${base}-@${newCode.assignedUsername.toUpperCase()}` : base;
         records.push({
           code,
+          amount,
+          discount,
           is_used: false,
           assigned_username: newCode.assignedUsername || null,
         });
       }
       await supabase.from("maintenance_codes").insert(records);
       toast.success(`${count} code(s) generated!`);
-      setNewCode({ ...newCode, assignedUsername: "" });
+      setNewCode({ ...newCode, assignedUsername: "", amount: "", discount: "" });
       refetchCodes();
     } catch { toast.error("Failed to generate codes"); }
   }
@@ -366,6 +377,8 @@ export default function Admin() {
         member_id: member.id, type: "maintenance_code", amount: 0,
         description: `Redeemed maintenance code: ${codeRecord.code}`, status: "completed",
       });
+      // Credit the code's amount to the member's ownership and lower the system total.
+      await applyCodeOwnership(member.id, codeRecord, getSessionMemberId() || null);
       const { data: freshMembers } = await supabase.from("members").select("*");
       const { data: freshCodes } = await supabase.from("maintenance_codes").select("*");
       const allMembers = freshMembers || members;
@@ -378,23 +391,7 @@ export default function Admin() {
         setRedeemBusy(false);
         return;
       }
-      const canEarn = (m) => {
-        if (!m || m.status !== "approved") return false;
-        return maintenanceStatus(m, freshCodes || codes).isGreen;
-      };
-      let current = member;
-      for (let level = 1; level <= MAX_BONUS_LEVEL; level++) {
-        const upline = allMembers.find(m => m.id === current.referrer_id);
-        if (!upline) break;
-        if (canEarn(upline)) {
-          const bonus = LEVEL_CONFIG.find(l => l.level === level)?.bonus_amount || 0;
-          if (bonus > 0) await supabase.from("transactions").insert({
-            member_id: upline.id, type: "referral_bonus", amount: bonus, bonus_level: level,
-            description: `Level ${level} bonus from ${member.username}`, status: "completed", from_member_id: member.id,
-          });
-        }
-        current = upline;
-      }
+      await distributeUplineBonuses(member, allMembers, freshCodes || codes);
       toast.success("Code redeemed successfully! Upline bonuses distributed.");
       setRedeemModal(null); setRedeemCode("");
       window.location.reload();
@@ -555,6 +552,30 @@ export default function Admin() {
       else await createRecord("system_settings", { setting_key: "auto_redeem_enabled", setting_value: String(newVal) });
       toast.success(`Auto-redeem ${newVal ? "enabled" : "disabled"}`);
     } catch { toast.error("Failed to update"); setAutoRedeemEnabled(!newVal); }
+  }
+
+  async function toggleRedeemTimer() {
+    const newVal = !redeemTimerOn;
+    setRedeemTimerOn(newVal);
+    try {
+      const existing = settings.find(s => s.setting_key === "redeem_timer_enabled");
+      if (existing) await updateRecord("system_settings", existing.id, { setting_value: String(newVal) });
+      else await createRecord("system_settings", { setting_key: "redeem_timer_enabled", setting_value: String(newVal) });
+      toast.success(`Redeem timer ${newVal ? "enabled" : "disabled"}`);
+      window.dispatchEvent(new CustomEvent("system_settings_changed"));
+    } catch { toast.error("Failed to update"); setRedeemTimerOn(!newVal); }
+  }
+
+  async function toggleLevel6() {
+    const newVal = !level6On;
+    setLevel6On(newVal);
+    try {
+      const existing = settings.find(s => s.setting_key === LEVEL6_SETTING_KEY);
+      if (existing) await updateRecord("system_settings", existing.id, { setting_value: String(newVal) });
+      else await createRecord("system_settings", { setting_key: LEVEL6_SETTING_KEY, setting_value: String(newVal) });
+      toast.success(`Level 6 ${newVal ? "enabled" : "disabled"}`);
+      window.dispatchEvent(new CustomEvent("system_settings_changed"));
+    } catch { toast.error("Failed to update"); setLevel6On(!newVal); }
   }
 
   async function saveAnnouncement() {
@@ -832,8 +853,10 @@ export default function Admin() {
         <div className="space-y-6">
           <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><Plus className="w-5 h-5 text-amber-500" /> Generate Maintenance Codes</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div><Label>Count</Label><Input type="number" value={newCode.count} onChange={e => setNewCode({ ...newCode, count: e.target.value })} /></div>
+              <div><Label>Amount per Code (₱, optional)</Label><Input type="number" min="0" step="0.01" value={newCode.amount} onChange={e => setNewCode({ ...newCode, amount: e.target.value })} placeholder="0.00" /></div>
+              <div><Label>Discount per Code (₱, optional)</Label><Input type="number" min="0" step="0.01" value={newCode.discount} onChange={e => setNewCode({ ...newCode, discount: e.target.value })} placeholder="0.00" /></div>
               <div className="relative">
                 <Label>Assign To (optional — locks code to this user)</Label>
                 {newCode.assignedUsername && !assignedOpen ? (
@@ -890,7 +913,7 @@ export default function Admin() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="border-b border-gray-100">
-                  {["Code", "Assigned To", "Status", "Used By", "Date", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
+                  {["Code", "Amount", "Discount", "Assigned To", "Status", "Used By", "Date", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {codes.slice(0, 100).map(c => {
@@ -898,6 +921,8 @@ export default function Admin() {
                     return (
                       <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                         <td onClick={() => copyCode(c.code)} className="px-6 py-4 text-sm font-mono font-bold text-gray-900 cursor-pointer hover:text-amber-600 transition-colors select-none" title="Click to copy">{c.code}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">{money(c.amount || 0)}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-fuchsia-600">{money(c.discount || 0)}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{c.assigned_username ? `@${c.assigned_username}` : "—"}</td>
                         <td className="px-6 py-4"><Badge className={c.is_used ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"}>{c.is_used ? "Used" : "Available"}</Badge></td>
                         <td className="px-6 py-4 text-sm text-gray-600">{usedBy?.username || "—"}</td>
@@ -964,6 +989,8 @@ export default function Admin() {
 
       {/* Transaction History Tab */}
       {tab === "history" && <AdminTransactionHistory members={members} transactions={transactions} />}
+
+      {tab === "ownership" && <AdminOwnershipTab members={activeMembers} settings={settings} codes={codes} refetchSettings={refetchSettings} />}
 
       {/* Product Conversion Tab */}
       {tab === "product_conversion" && (
@@ -1462,6 +1489,34 @@ export default function Admin() {
             <div className="flex gap-3 items-end">
               <div className="flex-1"><Label>Start time</Label><Input type="time" value={autoRedeemTime} onChange={e => setAutoRedeemTime(e.target.value)} /></div>
               <Button onClick={saveAutoRedeemTime} className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white">Save</Button>
+            </div>
+          </div>
+          <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2"><Clock className="w-5 h-5 text-teal-500" /> Redeem Timer</h2>
+            <p className="text-sm text-gray-500 mb-4">When on, codes unlock only near the end of the 720-hour maintenance cycle.</p>
+            <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+              <div>
+                <span className="font-medium text-gray-700">Timer Enabled</span>
+                <p className="text-xs text-gray-400">When off, members and stores can redeem available codes anytime.</p>
+              </div>
+              <button onClick={toggleRedeemTimer}
+                className={`relative w-12 h-6 rounded-full transition-colors ${redeemTimerOn ? "bg-green-500" : "bg-gray-300"}`}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${redeemTimerOn ? "translate-x-6" : "translate-x-0.5"}`} />
+              </button>
+            </div>
+          </div>
+          <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2"><Layers className="w-5 h-5 text-indigo-500" /> Level Bonuses</h2>
+            <p className="text-sm text-gray-500 mb-4">Control whether Level 6 is part of the compensation plan.</p>
+            <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+              <div>
+                <span className="font-medium text-gray-700">Level 6 Bonus</span>
+                <p className="text-xs text-gray-400">When off, Level 6 is hidden and only Levels 1–5 are computed and displayed.</p>
+              </div>
+              <button onClick={toggleLevel6}
+                className={`relative w-12 h-6 rounded-full transition-colors ${level6On ? "bg-green-500" : "bg-gray-300"}`}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${level6On ? "translate-x-6" : "translate-x-0.5"}`} />
+              </button>
             </div>
           </div>
           <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">

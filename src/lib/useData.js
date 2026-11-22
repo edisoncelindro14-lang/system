@@ -67,7 +67,18 @@ export function useTable(tableName, options = {}) {
   }, [cacheKey, tableName, JSON.stringify(filter), order, limit, enabled]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  return { data, isLoading, refetch: fetchData };
+
+  // Apply a local change (e.g. a row that was just created or deleted) so the UI
+  // updates even when the follow-up refetch is slow or fails.
+  const mutate = useCallback((updater) => {
+    setData(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      setCache(cacheKey, next);
+      return next;
+    });
+  }, [cacheKey]);
+
+  return { data, isLoading, refetch: fetchData, mutate };
 }
 
 // Hook to get the current logged-in member

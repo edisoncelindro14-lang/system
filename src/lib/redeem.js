@@ -1,5 +1,54 @@
 import { supabase } from "./supabase";
-import { maintenanceStatus, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "./helpers";
+import toast from "react-hot-toast";
+import { maintenanceStatus, LEVEL_CONFIG, MAX_BONUS_LEVEL, LEVEL6_SETTING_KEY } from "./helpers";
+import { getSessionMemberId } from "./auth";
+import { OWNERSHIP_TOTAL_KEY, OWNERSHIP_DISCOUNT_KEY } from "./ownership";
+
+// A redeemed code pays part of the system ownership: its amount is recorded in
+// the member's payment history and deducted from the system ownership total,
+// while its discount is added to the system discount so the payable drops too.
+export async function applyCodeOwnership(memberId, codeRecord, recordedBy = null) {
+  const amount = Number(codeRecord.amount || 0);
+  const discount = Number(codeRecord.discount || 0);
+  if (!(amount > 0) && !(discount > 0)) return;
+
+  if (amount > 0) {
+    const { error } = await supabase.from("ownership_payments").insert({
+      member_id: memberId,
+      amount,
+      note: `Maintenance code ${codeRecord.code}${discount > 0 ? ` (discount ${discount})` : ""}`,
+      recorded_by: recordedBy,
+    });
+    if (error) {
+      // Never fail silently: a rejected insert is why a redeemed code would not
+      // show up in the payment history (missing table/column or RLS policy).
+      console.error("Ownership payment insert failed:", error);
+      toast.error(`Code redeemed, but the payment was not recorded: ${error.message || "unknown error"}`);
+    }
+  }
+
+  const { data: rows } = await supabase
+    .from("system_settings")
+    .select("id, setting_key, setting_value")
+    .in("setting_key", [OWNERSHIP_TOTAL_KEY, OWNERSHIP_DISCOUNT_KEY]);
+  const totalRow = (rows || []).find(r => r.setting_key === OWNERSHIP_TOTAL_KEY);
+  const discountRow = (rows || []).find(r => r.setting_key === OWNERSHIP_DISCOUNT_KEY);
+
+  const writes = [];
+  if (amount > 0 && totalRow) {
+    const remaining = Math.max(0, Number(totalRow.setting_value || 0) - amount);
+    writes.push(supabase.from("system_settings").update({ setting_value: String(remaining) }).eq("id", totalRow.id));
+  }
+  if (discount > 0) {
+    const nextDiscount = Number(discountRow?.setting_value || 0) + discount;
+    writes.push(discountRow
+      ? supabase.from("system_settings").update({ setting_value: String(nextDiscount) }).eq("id", discountRow.id)
+      : supabase.from("system_settings").insert({ setting_key: OWNERSHIP_DISCOUNT_KEY, setting_value: String(nextDiscount) }));
+  }
+  await Promise.all(writes);
+
+  window.dispatchEvent(new CustomEvent("ownership_changed"));
+}
 
 // Redeem a maintenance code directly (used by CodeCabinet shortcut + Dashboard)
 export async function redeemCode(codeRecord, currentMember, allMembers, allCodes) {
@@ -27,7 +76,7 @@ export async function redeemCode(codeRecord, currentMember, allMembers, allCodes
   writes.push(supabase.from("transactions").insert({
     member_id: currentMember.id,
     type: "maintenance_code",
-    amount: 0,
+    amount: Number(codeRecord.amount || 0),
     description: `Redeemed maintenance code: ${codeRecord.code}`,
     status: "completed",
   }));
@@ -45,6 +94,7 @@ export async function redeemCode(codeRecord, currentMember, allMembers, allCodes
 
   // Fetch fresh data so upline maintenance status is accurate
   await Promise.all(writes);
+  await applyCodeOwnership(currentMember.id, codeRecord);
   const [{ data: freshMembers }, { data: freshCodes }] = await Promise.all([
     supabase.from("members").select("*"),
     supabase.from("maintenance_codes").select("*"),
@@ -55,7 +105,7 @@ export async function redeemCode(codeRecord, currentMember, allMembers, allCodes
     return { message: "Code redeemed. You must be placed under an upline before commissions are distributed." };
   }
 
-  await distributeUplineBonuses(currentMember, freshMembers || allMembers, freshCodes || allCodes, codeRecord);
+  await distributeUplineBonuses(currentMember, freshMembers || allMembers, freshCodes || allCodes);
   return { message: "Code redeemed successfully! Upline bonuses distributed." };
 }
 
@@ -83,7 +133,7 @@ export async function redeemCodeForMember(codeRecord, member, allMembers, allCod
   writes.push(supabase.from("transactions").insert({
     member_id: member.id,
     type: "maintenance_code",
-    amount: 0,
+    amount: Number(codeRecord.amount || 0),
     description: `Redeemed maintenance code: ${codeRecord.code}`,
     status: "completed",
   }));
@@ -99,6 +149,7 @@ export async function redeemCodeForMember(codeRecord, member, allMembers, allCod
   }));
 
   await Promise.all(writes);
+  await applyCodeOwnership(member.id, codeRecord, getSessionMemberId() || null);
   const [{ data: freshMembers }, { data: freshCodes }] = await Promise.all([
     supabase.from("members").select("*"),
     supabase.from("maintenance_codes").select("*"),
@@ -111,21 +162,32 @@ export async function redeemCodeForMember(codeRecord, member, allMembers, allCod
     return { message: "Code redeemed. Member must be placed under an upline before commissions are distributed." };
   }
 
-  await distributeUplineBonuses(member, allM, allC, codeRecord);
+  await distributeUplineBonuses(member, allM, allC);
   return { message: "Code redeemed successfully! Upline bonuses distributed." };
 }
 
-async function distributeUplineBonuses(member, allMembers, allCodes, codeRecord) {
+// Every code a downline redeems pays each upline within 6 levels that level's
+// bonus (LEVEL_CONFIG), walking up the referral chain. Shared by self-redeem,
+// store redeem, admin redeem and placement.
+export async function distributeUplineBonuses(member, allMembers, allCodes) {
   const canEarn = (m) => {
     if (!m || m.status !== "approved") return false;
     const status = maintenanceStatus(m, allCodes);
     return status.isGreen;
   };
 
+  // The admin can switch Level 6 off in Settings; it then pays nothing.
+  const { data: levelSetting } = await supabase
+    .from("system_settings")
+    .select("setting_value")
+    .eq("setting_key", LEVEL6_SETTING_KEY)
+    .limit(1);
+  const maxLevel = levelSetting?.[0]?.setting_value === "false" ? MAX_BONUS_LEVEL - 1 : MAX_BONUS_LEVEL;
+
   const bonusWrites = [];
   const paidMembers = new Set();
   let current = member;
-  for (let level = 1; level <= MAX_BONUS_LEVEL; level++) {
+  for (let level = 1; level <= maxLevel; level++) {
     const upline = allMembers.find(m => m.id === current.referrer_id);
     if (!upline) break;
     if (canEarn(upline) && !paidMembers.has(upline.id)) {
@@ -146,4 +208,5 @@ async function distributeUplineBonuses(member, allMembers, allCodes, codeRecord)
     current = upline;
   }
   await Promise.all(bonusWrites);
+  return bonusWrites.length;
 }

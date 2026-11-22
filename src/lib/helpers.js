@@ -2,6 +2,15 @@
 const MAINTENANCE_SECONDS = 2592000; // 720 hours — green banner after redeem
 const GRACE_SECONDS = 432000; // 120 hours — red banner grace countdown
 
+// Admin toggle: when off, available codes can be redeemed anytime without
+// waiting for the maintenance countdown to unlock.
+export const REDEEM_TIMER_KEY = "redeem_timer_enabled";
+
+export function redeemTimerEnabled(settings = []) {
+  const row = settings.find(s => s.setting_key === REDEEM_TIMER_KEY);
+  return row ? row.setting_value !== "false" : true;
+}
+
 export function maintenanceStatus(member, codes = [], now = Date.now()) {
   if (!member) return { isGreen: false, secondsLeft: 0, neverRedeemed: true };
 
@@ -80,8 +89,18 @@ export const LEVEL_CONFIG = [
   { level: 6, label: "Level 6 — Sixth Generation", bonus_amount: 300, max_members: 262144, description: "Earn ₱300 every time a Level 6 downline redeems a maintenance code.", color: "from-indigo-500 to-purple-600", bgColor: "bg-indigo-50", borderColor: "border-indigo-200", textColor: "text-indigo-700" },
 ];
 
-// All 6 levels pay out income when downlines redeem maintenance codes
+// All 6 levels pay out income when downlines redeem maintenance codes. The admin
+// can switch Level 6 off in Settings; it then hides and only Levels 1–5 compute.
 export const MAX_BONUS_LEVEL = 6;
+export const LEVEL6_SETTING_KEY = "level6_enabled";
+
+export function level6Enabled(settings = []) {
+  return settings.find(s => s.setting_key === LEVEL6_SETTING_KEY)?.setting_value !== "false";
+}
+
+export function activeLevels(settings = []) {
+  return level6Enabled(settings) ? LEVEL_CONFIG : LEVEL_CONFIG.filter(l => l.level < MAX_BONUS_LEVEL);
+}
 
 export const TRANSACTION_TYPES = {
   level_bonus: { label: "Level Bonus", color: "bg-emerald-100 text-emerald-700" },

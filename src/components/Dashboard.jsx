@@ -6,10 +6,19 @@ import toast from "react-hot-toast";
 import { useTable, useCurrentMember, createRecord } from "../lib/useData";
 import { supabase } from "../lib/supabase";
 import { redeemCode } from "../lib/redeem";
-import { money, formatDate, withdrawalCharge, LEVEL_CONFIG, MAX_BONUS_LEVEL, maintenanceStatus } from "../lib/helpers";
+import { money, formatDate, withdrawalCharge, activeLevels } from "../lib/helpers";
 import { Button, Badge } from "./ui";
 import AnnouncementBanner from "./AnnouncementBanner";
 import NotificationsInbox from "./NotificationsInbox";
+import { ownershipSummary, accountFor } from "../lib/ownership";
+
+// 30 -> "30th", 1 -> "1st", 22 -> "22nd"
+function ordinal(day) {
+  const mod100 = day % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${day}th`;
+  const mod10 = day % 10;
+  return `${day}${mod10 === 1 ? "st" : mod10 === 2 ? "nd" : mod10 === 3 ? "rd" : "th"}`;
+}
 
 export default function Dashboard() {
   const [showHistory, setShowHistory] = useState(false);
@@ -24,6 +33,8 @@ export default function Dashboard() {
   const { data: transactions = [] } = useTable("transactions");
   const { data: conversionReqs = [] } = useTable("conversion_requests");
   const { data: settings = [] } = useTable("system_settings");
+  const { data: ownershipPayments = [] } = useTable("ownership_payments");
+  const { data: ownershipAccounts = [] } = useTable("ownership_accounts");
   const { currentMember } = useCurrentMember(members);
   const { data: myNotifications = [], refetch: refetchNotifications } = useTable("notifications", {
     filter: { member_id: currentMember?.id },
@@ -52,6 +63,11 @@ export default function Dashboard() {
   const pendingWithdrawal = conversionReqs.find(r => r.member_id === currentMember?.id && r.status === "pending");
   const withdrawals = myTx.filter(t => t.type === "withdrawal").sort((a, b) => new Date(b.created_date || b.created_at) - new Date(a.created_date || a.created_at));
   const myRedeemedCodes = allCodes.filter(c => c.is_used && c.used_by_member_id === currentMember?.id).sort((a, b) => new Date(b.used_at) - new Date(a.used_at));
+
+  const ownership = currentMember
+    ? ownershipSummary(currentMember.id, ownershipPayments, settings, accountFor(ownershipAccounts, currentMember.id), allCodes)
+    : null;
+  const dueDay = ownership?.nextPaymentDue ? parseInt(String(ownership.nextPaymentDue).split("-")[2], 10) : null;
 
   async function handleWithdraw() {
     if (withdrawValue < minAmount) {
@@ -120,37 +136,6 @@ export default function Dashboard() {
     setRedeemBusy(false);
   }
 
-  async function distributeUplineBonuses(member, allMembers, allCodes, codeRecord) {
-    // Only uplines with GREEN maintenance status (redeemed & active) can earn bonuses
-    const canEarn = (m) => {
-      if (!m || m.status !== "approved") return false;
-      const status = maintenanceStatus(m, allCodes);
-      return status.isGreen;
-    };
-
-    // Walk up the referrer chain, paying bonuses at each level (1 through MAX_BONUS_LEVEL)
-    let current = member;
-    for (let level = 1; level <= MAX_BONUS_LEVEL; level++) {
-      const upline = allMembers.find(m => m.id === current.referrer_id);
-      if (!upline) break;
-      if (canEarn(upline)) {
-        const bonus = LEVEL_CONFIG.find(l => l.level === level)?.bonus_amount || 0;
-        if (bonus > 0) {
-          await supabase.from("transactions").insert({
-            member_id: upline.id,
-            type: "referral_bonus",
-            amount: bonus,
-            bonus_level: level,
-            description: `Level ${level} bonus from ${member.username}`,
-            status: "completed",
-            from_member_id: member.id,
-          });
-        }
-      }
-      current = upline;
-    }
-  }
-
   const referralLink = currentMember?.referral_code ? `${window.location.origin}/Register?ref=${currentMember.referral_code}` : "";
 
   function copyReferral() {
@@ -203,6 +188,14 @@ export default function Dashboard() {
       </motion.div>
 
       <AnnouncementBanner />
+
+      {dueDay > 0 && (
+        <div className="mb-4 flex justify-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-red-50 border border-red-200 px-4 py-1.5 text-sm font-semibold text-red-600">
+            <Clock className="w-4 h-4" /> Payment Due Date: Every {ordinal(dueDay)} of the Month
+          </span>
+        </div>
+      )}
 
       <div className="mb-6 flex justify-center gap-4">
         <a href="https://forms.gle/5WRjKTq8DRBChf6RA" target="_blank" rel="noopener noreferrer"
@@ -342,7 +335,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="px-6 pt-4 grid grid-cols-5 gap-3">
-            {LEVEL_CONFIG.map(l => (
+            {activeLevels(settings).map(l => (
               <div key={l.level} className="text-center">
                 <div className={`w-10 h-10 bg-gradient-to-br ${l.color} rounded-xl flex items-center justify-center text-white font-extrabold text-lg mx-auto mb-1`}>
                   L{l.level}

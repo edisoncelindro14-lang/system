@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Copy, Clock, Ticket } from "lucide-react";
 import toast from "react-hot-toast";
-import { maintenanceStatus, formatTime, formatDate } from "../lib/helpers";
+import { maintenanceStatus, formatTime, formatDate, money, redeemTimerEnabled } from "../lib/helpers";
+import { useTable } from "../lib/useData";
 import { redeemCodeForMember } from "../lib/redeem";
 import { Button } from "./ui";
 import SearchableDropdown from "./SearchableDropdown";
@@ -12,6 +13,8 @@ export default function StoreAvailableCodes({ storeId, members, codes, refetchCo
   const [selectedUser, setSelectedUser] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const { data: systemSettings = [] } = useTable("system_settings");
+  const timerEnabled = redeemTimerEnabled(systemSettings);
 
   // Tick every second for countdown timers
   useEffect(() => {
@@ -44,7 +47,7 @@ export default function StoreAvailableCodes({ storeId, members, codes, refetchCo
     if (!member) { toast.error("Member not found"); return; }
 
     const status = maintenanceStatus(member, codes);
-    if (status.isGreen && status.secondsLeft > REDEEM_UNLOCK_THRESHOLD) {
+    if (timerEnabled && status.isGreen && status.secondsLeft > REDEEM_UNLOCK_THRESHOLD) {
       toast.error(`Redeem unlocks in ${formatTime(status.secondsLeft - REDEEM_UNLOCK_THRESHOLD)} when the 720-hour cycle ends.`);
       return;
     }
@@ -98,13 +101,14 @@ export default function StoreAvailableCodes({ storeId, members, codes, refetchCo
             {filtered.map(c => {
               const member = members.find(m => m.username === c.assigned_username);
               const status = member ? maintenanceStatus(member, codes) : null;
-              const isLocked = status?.isGreen && status.secondsLeft > REDEEM_UNLOCK_THRESHOLD;
+              const isLocked = timerEnabled && status?.isGreen && status.secondsLeft > REDEEM_UNLOCK_THRESHOLD;
               const unlockSeconds = isLocked ? status.secondsLeft - REDEEM_UNLOCK_THRESHOLD : 0;
 
               return (
                 <div key={c.id} className="flex items-center justify-between px-1 py-4">
                   <div className="min-w-0 flex-1">
                     <p className="font-mono font-bold text-gray-900 text-base">{c.code}</p>
+                    <p className="text-xs font-semibold text-emerald-600 mt-0.5">{money(c.amount || 0)} ownership credit{c.discount > 0 ? ` · ${money(c.discount)} discount` : ""}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       Received {formatDate(c.created_at, "MMM d, yyyy h:mm a")}
                     </p>
