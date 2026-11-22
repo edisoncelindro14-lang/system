@@ -12,12 +12,13 @@ export async function applyCodeOwnership(memberId, codeRecord, recordedBy = null
   if (!(amount > 0) && !(discount > 0)) return;
 
   if (amount > 0) {
-    await supabase.from("ownership_payments").insert({
+    const { error } = await supabase.from("ownership_payments").insert({
       member_id: memberId,
       amount,
       note: `Maintenance code ${codeRecord.code}${discount > 0 ? ` (discount ${discount})` : ""}`,
       recorded_by: recordedBy,
     });
+    if (error) console.error("Ownership payment insert failed:", error);
   }
 
   const { data: rows } = await supabase
@@ -69,7 +70,7 @@ export async function redeemCode(codeRecord, currentMember, allMembers, allCodes
   writes.push(supabase.from("transactions").insert({
     member_id: currentMember.id,
     type: "maintenance_code",
-    amount: 0,
+    amount: Number(codeRecord.amount || 0),
     description: `Redeemed maintenance code: ${codeRecord.code}`,
     status: "completed",
   }));
@@ -126,7 +127,7 @@ export async function redeemCodeForMember(codeRecord, member, allMembers, allCod
   writes.push(supabase.from("transactions").insert({
     member_id: member.id,
     type: "maintenance_code",
-    amount: 0,
+    amount: Number(codeRecord.amount || 0),
     description: `Redeemed maintenance code: ${codeRecord.code}`,
     status: "completed",
   }));
