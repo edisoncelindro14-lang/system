@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import { useTable, useCurrentMember, createRecord } from "../lib/useData";
 import { supabase } from "../lib/supabase";
 import { redeemCode } from "../lib/redeem";
-import { money, formatDate, withdrawalCharge, LEVEL_CONFIG, MAX_BONUS_LEVEL, maintenanceStatus } from "../lib/helpers";
+import { money, formatDate, withdrawalCharge, activeLevels } from "../lib/helpers";
 import { Button, Badge } from "./ui";
 import AnnouncementBanner from "./AnnouncementBanner";
 import NotificationsInbox from "./NotificationsInbox";
@@ -134,37 +134,6 @@ export default function Dashboard() {
       toast.error(err.message || "Failed to redeem code");
     }
     setRedeemBusy(false);
-  }
-
-  async function distributeUplineBonuses(member, allMembers, allCodes, codeRecord) {
-    // Only uplines with GREEN maintenance status (redeemed & active) can earn bonuses
-    const canEarn = (m) => {
-      if (!m || m.status !== "approved") return false;
-      const status = maintenanceStatus(m, allCodes);
-      return status.isGreen;
-    };
-
-    // Walk up the referrer chain, paying bonuses at each level (1 through MAX_BONUS_LEVEL)
-    let current = member;
-    for (let level = 1; level <= MAX_BONUS_LEVEL; level++) {
-      const upline = allMembers.find(m => m.id === current.referrer_id);
-      if (!upline) break;
-      if (canEarn(upline)) {
-        const bonus = LEVEL_CONFIG.find(l => l.level === level)?.bonus_amount || 0;
-        if (bonus > 0) {
-          await supabase.from("transactions").insert({
-            member_id: upline.id,
-            type: "referral_bonus",
-            amount: bonus,
-            bonus_level: level,
-            description: `Level ${level} bonus from ${member.username}`,
-            status: "completed",
-            from_member_id: member.id,
-          });
-        }
-      }
-      current = upline;
-    }
   }
 
   const referralLink = currentMember?.referral_code ? `${window.location.origin}/Register?ref=${currentMember.referral_code}` : "";
@@ -366,7 +335,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="px-6 pt-4 grid grid-cols-5 gap-3">
-            {LEVEL_CONFIG.map(l => (
+            {activeLevels(settings).map(l => (
               <div key={l.level} className="text-center">
                 <div className={`w-10 h-10 bg-gradient-to-br ${l.color} rounded-xl flex items-center justify-center text-white font-extrabold text-lg mx-auto mb-1`}>
                   L{l.level}

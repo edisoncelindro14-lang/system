@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 import toast from "react-hot-toast";
-import { maintenanceStatus, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "./helpers";
+import { maintenanceStatus, LEVEL_CONFIG, MAX_BONUS_LEVEL, LEVEL6_SETTING_KEY } from "./helpers";
 import { getSessionMemberId } from "./auth";
 import { OWNERSHIP_TOTAL_KEY, OWNERSHIP_DISCOUNT_KEY } from "./ownership";
 
@@ -176,10 +176,18 @@ export async function distributeUplineBonuses(member, allMembers, allCodes) {
     return status.isGreen;
   };
 
+  // The admin can switch Level 6 off in Settings; it then pays nothing.
+  const { data: levelSetting } = await supabase
+    .from("system_settings")
+    .select("setting_value")
+    .eq("setting_key", LEVEL6_SETTING_KEY)
+    .limit(1);
+  const maxLevel = levelSetting?.[0]?.setting_value === "false" ? MAX_BONUS_LEVEL - 1 : MAX_BONUS_LEVEL;
+
   const bonusWrites = [];
   const paidMembers = new Set();
   let current = member;
-  for (let level = 1; level <= MAX_BONUS_LEVEL; level++) {
+  for (let level = 1; level <= maxLevel; level++) {
     const upline = allMembers.find(m => m.id === current.referrer_id);
     if (!upline) break;
     if (canEarn(upline) && !paidMembers.has(upline.id)) {

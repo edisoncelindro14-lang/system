@@ -30,7 +30,10 @@ language plpgsql as $$
 declare
   start_t text; tz text; local_now timestamp; today text; last_run text;
   r record; c record; up public.members; cur uuid; lvl int; n int := 0;
-  max_bonus_level int := 6;    -- LEVEL_CONFIG levels
+  -- LEVEL_CONFIG levels; Level 6 can be switched off in Admin Settings.
+  max_bonus_level int := case when exists (
+    select 1 from public.system_settings where setting_key = 'level6_enabled' and setting_value = 'false'
+  ) then 5 else 6 end;
   level_bonus numeric := 300;  -- LEVEL_CONFIG bonus_amount, same for every level
 begin
   if not pg_try_advisory_xact_lock(884201) then return 0; end if;

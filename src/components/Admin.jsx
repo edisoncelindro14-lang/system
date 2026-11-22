@@ -5,7 +5,7 @@ import {
   Eye, EyeOff, DollarSign, Trash2, RotateCcw, UserCog, GitBranch, Search,
   Download, Copy, Crown, ArrowRight, ChevronDown, X as XIcon, FileText,
   Key, Clock, Lock, Pencil, User, Save, Upload, Image as ImageIcon,
-  UserPlus, ArrowLeft, ShoppingBag, Store, Mail, History, CreditCard,
+  UserPlus, ArrowLeft, ShoppingBag, Store, Mail, History, CreditCard, Layers,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useTable, updateRecord, createRecord, deleteRecord } from "../lib/useData";
@@ -13,7 +13,7 @@ import { supabase } from "../lib/supabase";
 import { transferSponsor } from "../lib/sponsorTransfer";
 import { placementParent } from "../lib/genealogyPositions";
 import { getSessionMemberId } from "../lib/auth";
-import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime } from "../lib/helpers";
+import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime, LEVEL6_SETTING_KEY } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
 import { applyCodeOwnership, distributeUplineBonuses } from "../lib/redeem";
 import { Button, Input, Label, Badge } from "./ui";
@@ -53,6 +53,7 @@ export default function Admin() {
   const [autoRedeemTime, setAutoRedeemTime] = useState("");
   const [autoRedeemEnabled, setAutoRedeemEnabled] = useState(true);
   const [redeemTimerOn, setRedeemTimerOn] = useState(true);
+  const [level6On, setLevel6On] = useState(true);
   const [txSearch, setTxSearch] = useState("");
   const [tabVisibility, setTabVisibility] = useState({ monitoring: true, subadmin: true, terms: true, complan: true, product_conversion: true });
   const [announcementText, setAnnouncementText] = useState("");
@@ -96,6 +97,7 @@ export default function Admin() {
     setAutoRedeemTime(map.auto_redeem_start_time || "");
     setAutoRedeemEnabled(map.auto_redeem_enabled !== "false");
     setRedeemTimerOn(map.redeem_timer_enabled !== "false");
+    setLevel6On(map[LEVEL6_SETTING_KEY] !== "false");
     setAnnouncementText(map.announcement_text || "");
     setAnnouncementEnabled(map.announcement_enabled === "true");
   }, [settings]);
@@ -562,6 +564,18 @@ export default function Admin() {
       toast.success(`Redeem timer ${newVal ? "enabled" : "disabled"}`);
       window.dispatchEvent(new CustomEvent("system_settings_changed"));
     } catch { toast.error("Failed to update"); setRedeemTimerOn(!newVal); }
+  }
+
+  async function toggleLevel6() {
+    const newVal = !level6On;
+    setLevel6On(newVal);
+    try {
+      const existing = settings.find(s => s.setting_key === LEVEL6_SETTING_KEY);
+      if (existing) await updateRecord("system_settings", existing.id, { setting_value: String(newVal) });
+      else await createRecord("system_settings", { setting_key: LEVEL6_SETTING_KEY, setting_value: String(newVal) });
+      toast.success(`Level 6 ${newVal ? "enabled" : "disabled"}`);
+      window.dispatchEvent(new CustomEvent("system_settings_changed"));
+    } catch { toast.error("Failed to update"); setLevel6On(!newVal); }
   }
 
   async function saveAnnouncement() {
@@ -1488,6 +1502,20 @@ export default function Admin() {
               <button onClick={toggleRedeemTimer}
                 className={`relative w-12 h-6 rounded-full transition-colors ${redeemTimerOn ? "bg-green-500" : "bg-gray-300"}`}>
                 <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${redeemTimerOn ? "translate-x-6" : "translate-x-0.5"}`} />
+              </button>
+            </div>
+          </div>
+          <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2"><Layers className="w-5 h-5 text-indigo-500" /> Level Bonuses</h2>
+            <p className="text-sm text-gray-500 mb-4">Control whether Level 6 is part of the compensation plan.</p>
+            <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+              <div>
+                <span className="font-medium text-gray-700">Level 6 Bonus</span>
+                <p className="text-xs text-gray-400">When off, Level 6 is hidden and only Levels 1–5 are computed and displayed.</p>
+              </div>
+              <button onClick={toggleLevel6}
+                className={`relative w-12 h-6 rounded-full transition-colors ${level6On ? "bg-green-500" : "bg-gray-300"}`}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${level6On ? "translate-x-6" : "translate-x-0.5"}`} />
               </button>
             </div>
           </div>

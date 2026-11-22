@@ -3,15 +3,18 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Layers, ArrowRight, HelpCircle } from "lucide-react";
 import { useTable, useCurrentMember } from "../lib/useData";
-import { LEVEL_CONFIG, money } from "../lib/helpers";
+import { activeLevels, money } from "../lib/helpers";
 import { Button } from "./ui";
 
 export default function LevelBonuses() {
   const { data: members = [] } = useTable("members");
   const { data: transactions = [] } = useTable("transactions");
+  const { data: settings = [] } = useTable("system_settings");
   const { currentMember } = useCurrentMember(members);
 
-  const totalMax = LEVEL_CONFIG.reduce((sum, l) => sum + l.bonus_amount * l.max_members, 0);
+  // The admin can switch Level 6 off; it then hides and only Levels 1–5 count.
+  const levels = activeLevels(settings);
+  const totalMax = levels.reduce((sum, l) => sum + l.bonus_amount * l.max_members, 0);
 
   if (!currentMember) {
     return (
@@ -36,7 +39,7 @@ export default function LevelBonuses() {
         </div>
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Zistem ComPlan</h1>
-          <p className="text-gray-500">6-level income structure — ₱300 per level per maintenance code redemption</p>
+          <p className="text-gray-500">{levels.length}-level income structure — ₱300 per level per maintenance code redemption</p>
         </div>
       </motion.div>
 
@@ -44,7 +47,7 @@ export default function LevelBonuses() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
         className="bg-gradient-to-r from-amber-700 to-amber-900 rounded-3xl p-6 text-white mb-8 shadow-xl">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-          <div><p className="text-amber-200 text-sm">Zistem Levels</p><p className="text-4xl font-extrabold">6</p></div>
+          <div><p className="text-amber-200 text-sm">Zistem Levels</p><p className="text-4xl font-extrabold">{levels.length}</p></div>
           <div><p className="text-amber-200 text-sm">Max 1st Level Downlines per Member</p><p className="text-4xl font-extrabold">8</p></div>
           <div><p className="text-amber-200 text-sm">Total Maximum Earnings MONTHLY</p><p className="text-4xl font-extrabold">{money(totalMax)}</p></div>
         </div>
@@ -56,14 +59,14 @@ export default function LevelBonuses() {
         <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><HelpCircle className="w-5 h-5 text-amber-700" /> How Zistem Bonuses Work</h2>
         <ol className="space-y-3 text-gray-700">
           <li className="flex gap-3"><span className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">1</span> A downline member redeems a maintenance code.</li>
-          <li className="flex gap-3"><span className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</span> Level 1 bonus (₱300) goes to the referrer whose link was used; Levels 2–6 walk up the placement chain.</li>
-          <li className="flex gap-3"><span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</span> Each upline within 6 levels receives their corresponding bonus instantly.</li>
+          <li className="flex gap-3"><span className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</span> Level 1 bonus (₱300) goes to the referrer whose link was used; Levels 2–{levels.length} walk up the placement chain.</li>
+          <li className="flex gap-3"><span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</span> Each upline within {levels.length} levels receives their corresponding bonus instantly.</li>
         </ol>
       </motion.div>
 
       {/* Level details */}
       <div className="space-y-4">
-        {LEVEL_CONFIG.map((l, i) => (
+        {levels.map((l, i) => (
           <motion.div key={l.level} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.05 }}
             className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
             <div className="flex items-center gap-4">
@@ -89,7 +92,7 @@ export default function LevelBonuses() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
         className="bg-gradient-to-r from-amber-700 to-amber-900 rounded-3xl p-6 text-white mt-8 shadow-xl">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-          <div><p className="text-amber-200 text-sm">Zistem Levels</p><p className="text-4xl font-extrabold">6</p></div>
+          <div><p className="text-amber-200 text-sm">Zistem Levels</p><p className="text-4xl font-extrabold">{levels.length}</p></div>
           <div><p className="text-amber-200 text-sm">Max 1st Level Downlines per Member</p><p className="text-4xl font-extrabold">8</p></div>
           <div><p className="text-amber-200 text-sm">Total Maximum Earnings MONTHLY</p><p className="text-4xl font-extrabold">{money(totalMax)}</p></div>
         </div>
