@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import toast from "react-hot-toast";
 import { maintenanceStatus, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "./helpers";
 import { getSessionMemberId } from "./auth";
 import { OWNERSHIP_TOTAL_KEY, OWNERSHIP_DISCOUNT_KEY } from "./ownership";
@@ -18,7 +19,12 @@ export async function applyCodeOwnership(memberId, codeRecord, recordedBy = null
       note: `Maintenance code ${codeRecord.code}${discount > 0 ? ` (discount ${discount})` : ""}`,
       recorded_by: recordedBy,
     });
-    if (error) console.error("Ownership payment insert failed:", error);
+    if (error) {
+      // Never fail silently: a rejected insert is why a redeemed code would not
+      // show up in the payment history (missing table/column or RLS policy).
+      console.error("Ownership payment insert failed:", error);
+      toast.error(`Code redeemed, but the payment was not recorded: ${error.message || "unknown error"}`);
+    }
   }
 
   const { data: rows } = await supabase
