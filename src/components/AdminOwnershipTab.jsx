@@ -9,7 +9,7 @@ import { ownershipSummary, accountFor, settingAmount, OWNERSHIP_STATUS, OWNERSHI
 import { Button, Input, Label, Badge } from "./ui";
 
 export default function AdminOwnershipTab({ members = [], settings = [], refetchSettings }) {
-  const { data: payments = [], refetch: refetchPayments } = useTable("ownership_payments", { order: "-created_date" });
+  const { data: payments = [], refetch: refetchPayments, mutate: mutatePayments } = useTable("ownership_payments", { order: "-created_date" });
   const { data: accounts = [], refetch: refetchAccounts } = useTable("ownership_accounts");
   const [search, setSearch] = useState("");
   const [totalAmount, setTotalAmount] = useState("0");
@@ -117,7 +117,7 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
         }
         toast.success("Using system amounts again");
       } else {
-        const values = { total_amount: total, next_payment_amount: next, next_payment_due: due, discount, updated_by: getSessionMemberId() };
+        const values = { total_amount: total, next_payment_amount: next, next_payment_due: due, discount, updated_by: getSessionMemberId() || null };
         const { error } = account
           ? await updateRecord("ownership_accounts", account.id, values)
           : await createRecord("ownership_accounts", { member_id: amountModal.id, ...values });
@@ -141,15 +141,18 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
     const summary = summaryFor(payModal);
     setSavingPay(true);
     try {
-      const { error } = await createRecord("ownership_payments", {
+      const { data: saved, error } = await createRecord("ownership_payments", {
         member_id: payModal.id,
         amount,
         total_amount: summary.total,
         discount: summary.discount,
         note: payNote.trim() || null,
-        recorded_by: getSessionMemberId(),
+        // An empty/stale session id must not block the insert (the column is a uuid FK).
+        recorded_by: getSessionMemberId() || null,
       });
       if (error) throw error;
+      // Show the new payment immediately; the refetch below only confirms it.
+      if (saved) mutatePayments(prev => [saved, ...prev]);
       toast.success(`Payment of ${money(amount)} recorded`);
       setPayModal(null);
       refetchPayments();
@@ -162,12 +165,14 @@ export default function AdminOwnershipTab({ members = [], settings = [], refetch
 
   async function removePayment(payment) {
     try {
-      await deleteRecord("ownership_payments", payment.id);
+      const { error } = await deleteRecord("ownership_payments", payment.id);
+      if (error) throw error;
+      mutatePayments(prev => prev.filter(p => p.id !== payment.id));
       toast.success("Payment deleted");
       refetchPayments();
       window.dispatchEvent(new CustomEvent("ownership_changed"));
-    } catch {
-      toast.error("Failed to delete payment");
+    } catch (err) {
+      toast.error(err?.message || "Failed to delete payment");
     }
   }
 
