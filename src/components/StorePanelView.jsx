@@ -45,9 +45,8 @@ export default function StorePanelView({ store }) {
   async function generate() {
     const n = parseInt(count) || 0;
     const target = username.trim().replace(/^@/, "");
-    const codeAmount = parseFloat(amount);
+    const codeAmount = parseFloat(amount) || 0;
     if (n < 1) { toast.error("Enter a valid number of codes"); return; }
-    if (!(codeAmount > 0)) { toast.error("Enter the amount each code is worth"); return; }
     if (n > q.remaining) { toast.error(`You can only generate ${q.remaining} more code(s)`); return; }
     if (!target) { toast.error("Select a username to designate the code to"); return; }
     if (!usernames.includes(target)) { toast.error("Username not found"); return; }
@@ -108,7 +107,7 @@ export default function StorePanelView({ store }) {
             <Input type="number" min="1" max={q.remaining} value={count} onChange={e => setCount(e.target.value)} />
           </div>
           <div>
-            <Label>Amount per Code (₱)</Label>
+            <Label>Amount per Code (₱, optional)</Label>
             <Input type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" />
           </div>
           <div>

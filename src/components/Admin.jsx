@@ -203,8 +203,7 @@ export default function Admin() {
 
   async function generateCodes() {
     const count = parseInt(newCode.count) || 1;
-    const amount = parseFloat(newCode.amount);
-    if (!(amount > 0)) { toast.error("Enter the amount each code is worth"); return; }
+    const amount = parseFloat(newCode.amount) || 0;
     try {
       const records = [];
       for (let i = 0; i < count; i++) {
@@ -842,7 +841,7 @@ export default function Admin() {
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><Plus className="w-5 h-5 text-amber-500" /> Generate Maintenance Codes</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div><Label>Count</Label><Input type="number" value={newCode.count} onChange={e => setNewCode({ ...newCode, count: e.target.value })} /></div>
-              <div><Label>Amount per Code (₱)</Label><Input type="number" min="0" step="0.01" value={newCode.amount} onChange={e => setNewCode({ ...newCode, amount: e.target.value })} placeholder="0.00" /></div>
+              <div><Label>Amount per Code (₱, optional)</Label><Input type="number" min="0" step="0.01" value={newCode.amount} onChange={e => setNewCode({ ...newCode, amount: e.target.value })} placeholder="0.00" /></div>
               <div className="relative">
                 <Label>Assign To (optional — locks code to this user)</Label>
                 {newCode.assignedUsername && !assignedOpen ? (
