@@ -2,6 +2,15 @@
 const MAINTENANCE_SECONDS = 2592000; // 720 hours — green banner after redeem
 const GRACE_SECONDS = 432000; // 120 hours — red banner grace countdown
 
+// Admin toggle: when off, available codes can be redeemed anytime without
+// waiting for the maintenance countdown to unlock.
+export const REDEEM_TIMER_KEY = "redeem_timer_enabled";
+
+export function redeemTimerEnabled(settings = []) {
+  const row = settings.find(s => s.setting_key === REDEEM_TIMER_KEY);
+  return row ? row.setting_value !== "false" : true;
+}
+
 export function maintenanceStatus(member, codes = [], now = Date.now()) {
   if (!member) return { isGreen: false, secondsLeft: 0, neverRedeemed: true };
 

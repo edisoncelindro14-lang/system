@@ -6,7 +6,7 @@ import { useTable } from "../lib/useData";
 import { useMaintenance } from "../lib/useMaintenance";
 import { supabase } from "../lib/supabase";
 import { redeemCode } from "../lib/redeem";
-import { formatDate, formatTime, money } from "../lib/helpers";
+import { formatDate, formatTime, money, redeemTimerEnabled } from "../lib/helpers";
 import { Button, Badge } from "./ui";
 import AutoRedeemPanel from "./AutoRedeemPanel";
 import WeeklyRedeemMonitor from "./WeeklyRedeemMonitor";
@@ -59,9 +59,11 @@ export default function CodeCabinet() {
     toast.success("Code copied! Paste it in the Maintenance Code box on your Dashboard.");
   }
 
-  // Redeem is locked unless: never redeemed before, maintenance expired, or ≤2h left on the 720h countdown
-  const canRedeem = !maintenance || !maintenance.isGreen || maintenance.secondsLeft <= REDEEM_UNLOCK_THRESHOLD;
-  const lockSeconds = maintenance && maintenance.isGreen ? maintenance.secondsLeft : 0;
+  // Redeem is locked unless: the admin turned the timer off, never redeemed
+  // before, maintenance expired, or ≤2h left on the 720h countdown
+  const timerEnabled = redeemTimerEnabled(systemSettings);
+  const canRedeem = !timerEnabled || !maintenance || !maintenance.isGreen || maintenance.secondsLeft <= REDEEM_UNLOCK_THRESHOLD;
+  const lockSeconds = timerEnabled && maintenance && maintenance.isGreen ? maintenance.secondsLeft : 0;
 
   async function handleRedeem(code) {
     if (!canRedeem) {

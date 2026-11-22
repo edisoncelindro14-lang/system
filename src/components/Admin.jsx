@@ -52,6 +52,7 @@ export default function Admin() {
   const [savingMin, setSavingMin] = useState(false);
   const [autoRedeemTime, setAutoRedeemTime] = useState("");
   const [autoRedeemEnabled, setAutoRedeemEnabled] = useState(true);
+  const [redeemTimerOn, setRedeemTimerOn] = useState(true);
   const [txSearch, setTxSearch] = useState("");
   const [tabVisibility, setTabVisibility] = useState({ monitoring: true, subadmin: true, terms: true, complan: true, product_conversion: true });
   const [announcementText, setAnnouncementText] = useState("");
@@ -94,6 +95,7 @@ export default function Admin() {
     if (minSetting) setMinAmount(minSetting.setting_value);
     setAutoRedeemTime(map.auto_redeem_start_time || "");
     setAutoRedeemEnabled(map.auto_redeem_enabled !== "false");
+    setRedeemTimerOn(map.redeem_timer_enabled !== "false");
     setAnnouncementText(map.announcement_text || "");
     setAnnouncementEnabled(map.announcement_enabled === "true");
   }, [settings]);
@@ -564,6 +566,18 @@ export default function Admin() {
       else await createRecord("system_settings", { setting_key: "auto_redeem_enabled", setting_value: String(newVal) });
       toast.success(`Auto-redeem ${newVal ? "enabled" : "disabled"}`);
     } catch { toast.error("Failed to update"); setAutoRedeemEnabled(!newVal); }
+  }
+
+  async function toggleRedeemTimer() {
+    const newVal = !redeemTimerOn;
+    setRedeemTimerOn(newVal);
+    try {
+      const existing = settings.find(s => s.setting_key === "redeem_timer_enabled");
+      if (existing) await updateRecord("system_settings", existing.id, { setting_value: String(newVal) });
+      else await createRecord("system_settings", { setting_key: "redeem_timer_enabled", setting_value: String(newVal) });
+      toast.success(`Redeem timer ${newVal ? "enabled" : "disabled"}`);
+      window.dispatchEvent(new CustomEvent("system_settings_changed"));
+    } catch { toast.error("Failed to update"); setRedeemTimerOn(!newVal); }
   }
 
   async function saveAnnouncement() {
@@ -1477,6 +1491,20 @@ export default function Admin() {
             <div className="flex gap-3 items-end">
               <div className="flex-1"><Label>Start time</Label><Input type="time" value={autoRedeemTime} onChange={e => setAutoRedeemTime(e.target.value)} /></div>
               <Button onClick={saveAutoRedeemTime} className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white">Save</Button>
+            </div>
+          </div>
+          <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2"><Clock className="w-5 h-5 text-teal-500" /> Redeem Timer</h2>
+            <p className="text-sm text-gray-500 mb-4">When on, codes unlock only near the end of the 720-hour maintenance cycle.</p>
+            <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100">
+              <div>
+                <span className="font-medium text-gray-700">Timer Enabled</span>
+                <p className="text-xs text-gray-400">When off, members and stores can redeem available codes anytime.</p>
+              </div>
+              <button onClick={toggleRedeemTimer}
+                className={`relative w-12 h-6 rounded-full transition-colors ${redeemTimerOn ? "bg-green-500" : "bg-gray-300"}`}>
+                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${redeemTimerOn ? "translate-x-6" : "translate-x-0.5"}`} />
+              </button>
             </div>
           </div>
           <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
