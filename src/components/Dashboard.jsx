@@ -10,6 +10,7 @@ import { money, formatDate, withdrawalCharge, LEVEL_CONFIG, MAX_BONUS_LEVEL, mai
 import { Button, Badge } from "./ui";
 import AnnouncementBanner from "./AnnouncementBanner";
 import NotificationsInbox from "./NotificationsInbox";
+import { ownershipSummary, accountFor } from "../lib/ownership";
 
 export default function Dashboard() {
   const [showHistory, setShowHistory] = useState(false);
@@ -24,6 +25,8 @@ export default function Dashboard() {
   const { data: transactions = [] } = useTable("transactions");
   const { data: conversionReqs = [] } = useTable("conversion_requests");
   const { data: settings = [] } = useTable("system_settings");
+  const { data: ownershipPayments = [] } = useTable("ownership_payments");
+  const { data: ownershipAccounts = [] } = useTable("ownership_accounts");
   const { currentMember } = useCurrentMember(members);
   const { data: myNotifications = [], refetch: refetchNotifications } = useTable("notifications", {
     filter: { member_id: currentMember?.id },
@@ -52,6 +55,10 @@ export default function Dashboard() {
   const pendingWithdrawal = conversionReqs.find(r => r.member_id === currentMember?.id && r.status === "pending");
   const withdrawals = myTx.filter(t => t.type === "withdrawal").sort((a, b) => new Date(b.created_date || b.created_at) - new Date(a.created_date || a.created_at));
   const myRedeemedCodes = allCodes.filter(c => c.is_used && c.used_by_member_id === currentMember?.id).sort((a, b) => new Date(b.used_at) - new Date(a.used_at));
+
+  const ownership = currentMember
+    ? ownershipSummary(currentMember.id, ownershipPayments, settings, accountFor(ownershipAccounts, currentMember.id))
+    : null;
 
   async function handleWithdraw() {
     if (withdrawValue < minAmount) {
@@ -203,6 +210,14 @@ export default function Dashboard() {
       </motion.div>
 
       <AnnouncementBanner />
+
+      {ownership?.nextPaymentDue && (
+        <div className="mb-4 flex justify-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-red-50 border border-red-200 px-4 py-1.5 text-sm font-semibold text-red-600">
+            <Clock className="w-4 h-4" /> Next payment due: {formatDate(`${ownership.nextPaymentDue}T00:00:00`, "MMM d, yyyy")}
+          </span>
+        </div>
+      )}
 
       <div className="mb-6 flex justify-center gap-4">
         <a href="https://forms.gle/5WRjKTq8DRBChf6RA" target="_blank" rel="noopener noreferrer"
