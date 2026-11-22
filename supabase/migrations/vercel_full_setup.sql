@@ -441,6 +441,9 @@ create index if not exists idx_ownership_accounts_member on public.ownership_acc
 
 alter table public.ownership_accounts add column if not exists next_payment_due date;
 
+-- Optional discount carried by a maintenance code (existing projects predate it).
+alter table public.maintenance_codes add column if not exists discount numeric default 0;
+
 alter table public.ownership_accounts enable row level security;
 
 do $$ begin

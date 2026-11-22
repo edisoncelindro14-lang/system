@@ -44,7 +44,7 @@ export default function Admin() {
   const [profileSearchOpen, setProfileSearchOpen] = useState(false);
   const [profileForm, setProfileForm] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
-  const [newCode, setNewCode] = useState({ count: "1", assignedUsername: "", amount: "" });
+  const [newCode, setNewCode] = useState({ count: "1", assignedUsername: "", amount: "", discount: "" });
   const [assignedSearch, setAssignedSearch] = useState("");
   const [assignedOpen, setAssignedOpen] = useState(false);
   const [gcash, setGcash] = useState({ gcash_number: "", gcash_name: "" });
@@ -204,6 +204,7 @@ export default function Admin() {
   async function generateCodes() {
     const count = parseInt(newCode.count) || 1;
     const amount = parseFloat(newCode.amount) || 0;
+    const discount = parseFloat(newCode.discount) || 0;
     try {
       const records = [];
       for (let i = 0; i < count; i++) {
@@ -212,13 +213,14 @@ export default function Admin() {
         records.push({
           code,
           amount,
+          discount,
           is_used: false,
           assigned_username: newCode.assignedUsername || null,
         });
       }
       await supabase.from("maintenance_codes").insert(records);
       toast.success(`${count} code(s) generated!`);
-      setNewCode({ ...newCode, assignedUsername: "", amount: "" });
+      setNewCode({ ...newCode, assignedUsername: "", amount: "", discount: "" });
       refetchCodes();
     } catch { toast.error("Failed to generate codes"); }
   }
@@ -839,9 +841,10 @@ export default function Admin() {
         <div className="space-y-6">
           <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><Plus className="w-5 h-5 text-amber-500" /> Generate Maintenance Codes</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div><Label>Count</Label><Input type="number" value={newCode.count} onChange={e => setNewCode({ ...newCode, count: e.target.value })} /></div>
               <div><Label>Amount per Code (₱, optional)</Label><Input type="number" min="0" step="0.01" value={newCode.amount} onChange={e => setNewCode({ ...newCode, amount: e.target.value })} placeholder="0.00" /></div>
+              <div><Label>Discount per Code (₱, optional)</Label><Input type="number" min="0" step="0.01" value={newCode.discount} onChange={e => setNewCode({ ...newCode, discount: e.target.value })} placeholder="0.00" /></div>
               <div className="relative">
                 <Label>Assign To (optional — locks code to this user)</Label>
                 {newCode.assignedUsername && !assignedOpen ? (
@@ -898,7 +901,7 @@ export default function Admin() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead><tr className="border-b border-gray-100">
-                  {["Code", "Amount", "Assigned To", "Status", "Used By", "Date", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
+                  {["Code", "Amount", "Discount", "Assigned To", "Status", "Used By", "Date", "Actions"].map(h => <th key={h} className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">{h}</th>)}
                 </tr></thead>
                 <tbody>
                   {codes.slice(0, 100).map(c => {
@@ -907,6 +910,7 @@ export default function Admin() {
                       <tr key={c.id} className="border-b border-gray-50 hover:bg-gray-50">
                         <td onClick={() => copyCode(c.code)} className="px-6 py-4 text-sm font-mono font-bold text-gray-900 cursor-pointer hover:text-amber-600 transition-colors select-none" title="Click to copy">{c.code}</td>
                         <td className="px-6 py-4 text-sm font-semibold text-gray-900">{money(c.amount || 0)}</td>
+                        <td className="px-6 py-4 text-sm font-semibold text-fuchsia-600">{money(c.discount || 0)}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{c.assigned_username ? `@${c.assigned_username}` : "—"}</td>
                         <td className="px-6 py-4"><Badge className={c.is_used ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"}>{c.is_used ? "Used" : "Available"}</Badge></td>
                         <td className="px-6 py-4 text-sm text-gray-600">{usedBy?.username || "—"}</td>

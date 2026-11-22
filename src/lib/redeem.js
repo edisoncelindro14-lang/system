@@ -1,30 +1,44 @@
 import { supabase } from "./supabase";
 import { maintenanceStatus, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "./helpers";
 import { getSessionMemberId } from "./auth";
-import { OWNERSHIP_TOTAL_KEY } from "./ownership";
+import { OWNERSHIP_TOTAL_KEY, OWNERSHIP_DISCOUNT_KEY } from "./ownership";
 
 // A redeemed code pays part of the system ownership: its amount is recorded in
-// the member's payment history and deducted from the system ownership total.
+// the member's payment history and deducted from the system ownership total,
+// while its discount is added to the system discount so the payable drops too.
 export async function applyCodeOwnership(memberId, codeRecord, recordedBy = null) {
   const amount = Number(codeRecord.amount || 0);
-  if (!(amount > 0)) return;
+  const discount = Number(codeRecord.discount || 0);
+  if (!(amount > 0) && !(discount > 0)) return;
 
-  await supabase.from("ownership_payments").insert({
-    member_id: memberId,
-    amount,
-    note: `Maintenance code ${codeRecord.code}`,
-    recorded_by: recordedBy,
-  });
-
-  const { data: setting } = await supabase
-    .from("system_settings")
-    .select("id, setting_value")
-    .eq("setting_key", OWNERSHIP_TOTAL_KEY)
-    .maybeSingle();
-  if (setting) {
-    const remaining = Math.max(0, Number(setting.setting_value || 0) - amount);
-    await supabase.from("system_settings").update({ setting_value: String(remaining) }).eq("id", setting.id);
+  if (amount > 0) {
+    await supabase.from("ownership_payments").insert({
+      member_id: memberId,
+      amount,
+      note: `Maintenance code ${codeRecord.code}${discount > 0 ? ` (discount ${discount})` : ""}`,
+      recorded_by: recordedBy,
+    });
   }
+
+  const { data: rows } = await supabase
+    .from("system_settings")
+    .select("id, setting_key, setting_value")
+    .in("setting_key", [OWNERSHIP_TOTAL_KEY, OWNERSHIP_DISCOUNT_KEY]);
+  const totalRow = (rows || []).find(r => r.setting_key === OWNERSHIP_TOTAL_KEY);
+  const discountRow = (rows || []).find(r => r.setting_key === OWNERSHIP_DISCOUNT_KEY);
+
+  const writes = [];
+  if (amount > 0 && totalRow) {
+    const remaining = Math.max(0, Number(totalRow.setting_value || 0) - amount);
+    writes.push(supabase.from("system_settings").update({ setting_value: String(remaining) }).eq("id", totalRow.id));
+  }
+  if (discount > 0) {
+    const nextDiscount = Number(discountRow?.setting_value || 0) + discount;
+    writes.push(discountRow
+      ? supabase.from("system_settings").update({ setting_value: String(nextDiscount) }).eq("id", discountRow.id)
+      : supabase.from("system_settings").insert({ setting_key: OWNERSHIP_DISCOUNT_KEY, setting_value: String(nextDiscount) }));
+  }
+  await Promise.all(writes);
 
   window.dispatchEvent(new CustomEvent("ownership_changed"));
 }

@@ -105,7 +105,7 @@ export default function StoreAvailableCodes({ storeId, members, codes, refetchCo
                 <div key={c.id} className="flex items-center justify-between px-1 py-4">
                   <div className="min-w-0 flex-1">
                     <p className="font-mono font-bold text-gray-900 text-base">{c.code}</p>
-                    <p className="text-xs font-semibold text-emerald-600 mt-0.5">{money(c.amount || 0)} ownership credit</p>
+                    <p className="text-xs font-semibold text-emerald-600 mt-0.5">{money(c.amount || 0)} ownership credit{c.discount > 0 ? ` · ${money(c.discount)} discount` : ""}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       Received {formatDate(c.created_at, "MMM d, yyyy h:mm a")}
                     </p>
