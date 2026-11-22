@@ -99,7 +99,7 @@ export async function redeemCode(codeRecord, currentMember, allMembers, allCodes
     return { message: "Code redeemed. You must be placed under an upline before commissions are distributed." };
   }
 
-  await distributeUplineBonuses(currentMember, freshMembers || allMembers, freshCodes || allCodes, codeRecord);
+  await distributeUplineBonuses(currentMember, freshMembers || allMembers, freshCodes || allCodes);
   return { message: "Code redeemed successfully! Upline bonuses distributed." };
 }
 
@@ -156,11 +156,14 @@ export async function redeemCodeForMember(codeRecord, member, allMembers, allCod
     return { message: "Code redeemed. Member must be placed under an upline before commissions are distributed." };
   }
 
-  await distributeUplineBonuses(member, allM, allC, codeRecord);
+  await distributeUplineBonuses(member, allM, allC);
   return { message: "Code redeemed successfully! Upline bonuses distributed." };
 }
 
-async function distributeUplineBonuses(member, allMembers, allCodes, codeRecord) {
+// Every code a downline redeems pays each upline within 6 levels that level's
+// bonus (LEVEL_CONFIG), walking up the referral chain. Shared by self-redeem,
+// store redeem, admin redeem and placement.
+export async function distributeUplineBonuses(member, allMembers, allCodes) {
   const canEarn = (m) => {
     if (!m || m.status !== "approved") return false;
     const status = maintenanceStatus(m, allCodes);
@@ -191,4 +194,5 @@ async function distributeUplineBonuses(member, allMembers, allCodes, codeRecord)
     current = upline;
   }
   await Promise.all(bonusWrites);
+  return bonusWrites.length;
 }

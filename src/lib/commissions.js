@@ -1,5 +1,4 @@
-import { supabase } from "./supabase";
-import { maintenanceStatus, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "./helpers";
+import { distributeUplineBonuses } from "./redeem";
 
 /**
  * Distribute upline commissions when a member is placed.
@@ -21,37 +20,5 @@ export async function distributePlacementCommissions(member, allMembers, allCode
   );
   if (!hasRedeemed) return 0;
 
-  const canEarn = (m) => {
-    if (!m || m.status !== "approved") return false;
-    return maintenanceStatus(m, allCodes).isGreen;
-  };
-
-  let distributed = 0;
-  let current = member;
-  const paidMembers = new Set();
-
-  for (let level = 1; level <= MAX_BONUS_LEVEL; level++) {
-    const upline = allMembers.find(m => m.id === current.referrer_id);
-    if (!upline) break;
-
-    if (canEarn(upline) && !paidMembers.has(upline.id)) {
-      paidMembers.add(upline.id);
-      const bonus = LEVEL_CONFIG.find(l => l.level === level)?.bonus_amount || 0;
-      if (bonus > 0) {
-        await supabase.from("transactions").insert({
-          member_id: upline.id,
-          type: "referral_bonus",
-          amount: bonus,
-          bonus_level: level,
-          description: `Level ${level} bonus from ${member.username}`,
-          status: "completed",
-          from_member_id: member.id,
-        });
-        distributed++;
-      }
-    }
-    current = upline;
-  }
-
-  return distributed;
+  return distributeUplineBonuses(member, allMembers, allCodes);
 }

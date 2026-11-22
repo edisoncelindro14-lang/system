@@ -13,9 +13,9 @@ import { supabase } from "../lib/supabase";
 import { transferSponsor } from "../lib/sponsorTransfer";
 import { placementParent } from "../lib/genealogyPositions";
 import { getSessionMemberId } from "../lib/auth";
-import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime, LEVEL_CONFIG, MAX_BONUS_LEVEL } from "../lib/helpers";
+import { money, formatDate, generateReferralCode, maintenanceStatus, formatTime } from "../lib/helpers";
 import { distributePlacementCommissions } from "../lib/commissions";
-import { applyCodeOwnership } from "../lib/redeem";
+import { applyCodeOwnership, distributeUplineBonuses } from "../lib/redeem";
 import { Button, Input, Label, Badge } from "./ui";
 import { Megaphone } from "lucide-react";
 import Genealogy from "./Genealogy";
@@ -389,23 +389,7 @@ export default function Admin() {
         setRedeemBusy(false);
         return;
       }
-      const canEarn = (m) => {
-        if (!m || m.status !== "approved") return false;
-        return maintenanceStatus(m, freshCodes || codes).isGreen;
-      };
-      let current = member;
-      for (let level = 1; level <= MAX_BONUS_LEVEL; level++) {
-        const upline = allMembers.find(m => m.id === current.referrer_id);
-        if (!upline) break;
-        if (canEarn(upline)) {
-          const bonus = LEVEL_CONFIG.find(l => l.level === level)?.bonus_amount || 0;
-          if (bonus > 0) await supabase.from("transactions").insert({
-            member_id: upline.id, type: "referral_bonus", amount: bonus, bonus_level: level,
-            description: `Level ${level} bonus from ${member.username}`, status: "completed", from_member_id: member.id,
-          });
-        }
-        current = upline;
-      }
+      await distributeUplineBonuses(member, allMembers, freshCodes || codes);
       toast.success("Code redeemed successfully! Upline bonuses distributed.");
       setRedeemModal(null); setRedeemCode("");
       window.location.reload();
